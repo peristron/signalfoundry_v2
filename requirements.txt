@@ -1,0 +1,17 @@
+streamlit
+pandas
+numpy
+matplotlib
+wordcloud
+networkx
+streamlit-agraph
+openai
+nltk
+scikit-learn
+openpyxl
+pypdf
+python-pptx
+beautifulsoup4
+requests
+scipy
+qrcode[pil]
