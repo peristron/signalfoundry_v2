@@ -2071,53 +2071,97 @@ def render_workflow_guide():
     with st.expander("📘 Comprehensive App Guide: How to use this Tool", expanded=False):
         st.markdown("""
         ### 🌟 What is Signal Foundry?
-        A zero-dependency, air-gap-ready intelligence engine that turns any pile of unstructured text (PDFs, CSVs, chat logs, leaked docs, PowerPoints, etc.) into pure mathematical signal in <45 seconds.
+        Signal Foundry turns messy text into structured signal. Feed it PDFs, CSVs, transcripts, PowerPoints, pasted notes, or pre-computed sketches and it will surface the recurring language, relationships, themes, entities, and maturity signals hiding inside the corpus.
 
-        No training. No cloud (unless you ask for it). No b*llshit~
+        It is designed for fast exploratory analysis:
+        *   **What is this corpus about?**
+        *   **What terms actually matter?**
+        *   **Who keeps showing up?**
+        *   **What concepts cluster together?**
+        *   **What level of maturity or sophistication does the language signal?**
 
         ---
 
         ### 🚀 How to Use It (Three Paths)
 
-        **Path A – Instant Scan (99% of real work)**  
-        1. Drag files into the sidebar (or paste URLs/text).  
-        2. If you have >1 file → hit **"⚡ Scan ALL Items"**.  
-        3. If you want trends → pick a date column when prompted.  
-        4. Done. You now have perfect visibility.
+        **Path A – Instant Scan (best default for most users)**  
+        1. Upload one or more files in the sidebar, or paste URLs / raw text.  
+        2. Leave the default cleaning settings on unless you know you need something different.  
+        3. If you uploaded multiple items, click **"⚡ Scan ALL Items"**.  
+        4. Read the Word Cloud, Keyphrases, Entities, and Graph first.  
+        5. Move into Trends, Topic Modeling, Sentiment, or Maturity only after the first pass makes sense.
 
-        **Path B – Surgical Precision (when columns matter)**  
-        Click the little arrow next to each file → configure text/date/category columns → hit individual **Start Scan**.  
-        Use this only when you need granular control over messy CSVs.
+        **Path B – Surgical Precision (for structured files)**  
+        Use this when columns matter.
+        1. Expand the **Config** panel for a CSV or Excel file.
+        2. Choose the text columns you want analyzed.
+        3. Optionally choose a date column for trend analysis.
+        4. Optionally choose a category column for future slicing / grouping work.
+        5. Run the file individually with **Start Scan**.
 
-        **Path C – Grey-Site / Enterprise Mode**  
-        Run `harvester.py` on your secure server → upload the resulting `.json` sketch here.  
-        **Result:** You get the visualization dashboard (Counts, Graph, NPMI) without zero-trust raw text ever leaving the vault.
-
-        ---
-
-        ### 🧠 How to Read the Output (The Foundry Doctrine)
-
-        *   **Word Cloud + Stats** → Immediate gestalt. What is this corpus even about?  
-        *   **Keyphrases (TF-IDF)** → The unique technical DNA. Everything else is noise.  
-        *   **Sticky Concepts (NPMI)** → The real "terms of art". This is where the risk lives.  
-        *   **Entities** → Who and what entities actually matter (now catches DARPA, COVID-19, Neuralink, etc.).  
-        *   **Network Graph** → Context & causality. This is the closest thing to mind-reading text.  
-        *   **Topic Modeling** → Automatic thematic buckets. NMF for short messages, LDA for long docs.  
-        *   **Bayesian Sentiment** → The only sentiment you’re allowed to brief upstairs. Everything else is astrology~
-        *   **Maturity Model** → Assess organizational capability based on linguistic markers (e.g., Reactive vs. Strategic).
+        **Path C – Offline / Secure-Site Mode**  
+        Run `harvester.py` on your secure server, then upload the resulting `.json` sketch.
+        **Result:** You still get the visualization dashboard without moving raw source text into the Streamlit app.
 
         ---
 
-        ### ⚡ Pro Tips (You will use these every time)
+        ### 🧭 Recommended Reading Order
 
-        *   **Cumulative Analysis:** Need to add more files to an existing scan? Uncheck **"Clear previous data"**. The main button will change to **"➕ Scan & Add"**. Perfect for merging daily logs.
+        If you are new to the app, read the outputs in this order:
+        1. **Word Cloud + Stats** for the big picture
+        2. **Keyphrases / NPMI** for specific language and terminology
+        3. **Entities** for people, orgs, systems, or named things
+        4. **Graph** for relationships and clusters
+        5. **Trends** if dates were supplied
+        6. **Topic Modeling** when you want automatic thematic buckets
+        7. **Maturity** when you want an interpretive framework rather than raw term counts
+
+        ---
+
+        ### 🧠 How to Read the Output
+
+        *   **Word Cloud + Stats** → Fast orientation. Use this to confirm you scanned the right thing.
+        *   **Keyphrases (TF-IDF)** → What is unusually specific to this corpus, not just frequent.
+        *   **Sticky Concepts (NPMI)** → Which word pairs behave like real concepts rather than accidental neighbors.
+        *   **Entities** → Which named people, organizations, programs, or systems dominate the discussion.
+        *   **Network Graph** → Which terms cluster together and where the semantic gravity sits.
+        *   **Topic Modeling** → Machine-generated thematic buckets when you want a rough thematic map.
+        *   **Bayesian Sentiment** → Direction plus confidence, useful only when there is enough data.
+        *   **Maturity Model** → An interpretive scoring layer that reads the language as capability signal.
+
+        ---
+
+        ### 🧪 Topic Modeling: LDA vs NMF
+
+        **Choose LDA when:**
+        *   You are scanning longer documents, reports, policies, or dense PDFs.
+        *   You expect each chunk to contain a mix of themes.
+        *   You want broader, more blended topic buckets.
+
+        **Choose NMF when:**
+        *   You are scanning shorter rows, tickets, chats, transcripts, or survey comments.
+        *   You want sharper, more distinct topic buckets.
+        *   Your input feels repetitive but specific.
+
+        **If the topics look bad:**
+        *   Increase **Rows per Doc** for long reports and books.
+        *   Decrease **Rows per Doc** for chats, support logs, and transcripts.
+        *   Add boring boilerplate terms to **Stopwords**.
+        *   Try the other model. Topic modeling is exploratory, not definitive.
+
+        ---
+
+        ### ⚡ Practical Tips
+
+        *   **Additive Analysis:** Leave **Clear previous data** unchecked only when you intentionally want to merge new material into the current corpus.
         *   **Graph is a blob?** → Raise **Min Link Frequency**.  
         *   **Graph is empty islands?** → Lower it.  
         *   **Seeing garbage words?** → Add them to **Stopwords** box.  
         *   **Seeing "run" and "running"?** → Turn on **Lemmatization**.  
-        *   **Need a "Chain of Custody"?** → Download the **Hybrid Signature** (QR+Heatmap). It encodes the file's unique cryptographic hash into the visualization. It proves this analysis is grounded in *this* specific document, and not an AI hallucination.
+        *   **Dates not showing up in Trends?** → Make sure you selected the date column before scanning.
+        *   **Need a shareable verification artifact?** → Download the **Hybrid Signature** (QR + Heatmap).
 
-        **That’s it. Close this tab on day 2 and never open it again. You now own the room (or at least come into it with a unique, specific insight~).**
+        **Bottom line:** start simple, confirm the scan makes sense, then layer on the more interpretive tools.
         """)
 
 def render_lit_case_study():
@@ -2373,7 +2417,11 @@ def render_use_cases():
         *   **Goal:** Pinpoint when a project went off the rails.
         *   **Action:** Scan weekly status reports with the **Time-Travel Slider**.
         *   **Signal:** Watch for the crossover point where **"Plan" (L2)** words drop and **"Fix/Urgent" (L1)** words spike.
-### 🎓 Specialized: TAM & Client Maturity Assessment
+
+        ---
+
+        ### 🎓 Specialized: TAM & Client Maturity Assessment
+
         #### 6. The "Client Maturity Snapshot" (12-Domain Scan)
         *   **Goal:** Quickly gauge where a client stands across all 12 Brightspace admin maturity domains.
         *   **Action:** Upload 3–5 meeting transcripts or coaching session recordings (VTT/PDF) from a single client. Select the **🎓 Brightspace Maturity Model** persona.
@@ -2381,11 +2429,13 @@ def render_use_cases():
             *   The **Radar Chart** instantly shows which domains the client discusses at a strategic level vs. which are still basic.
             *   The **Breakdown Chart** reveals the distribution — is the client *mostly* Foundational with a few Advanced pockets, or broadly Advanced with Leading Edge potential?
         *   **Action:** Use the domain cards to identify the 2–3 domains with the lowest scores and build your coaching plan around them.
+
         #### 7. Client Progress Over Time (Longitudinal Tracking)
         *   **Goal:** Measure whether a client's maturity is improving after coaching.
         *   **Action:** Export a snapshot after each major engagement (quarterly reviews, coaching milestones). Later, upload all snapshots to the Progress Tracking section.
         *   **Signal:** Compare the composite scores and per-domain scores across dates. Are the reds turning orange? Are the oranges turning green?
         *   **Value:** Concrete, data-backed evidence of TAM impact for quarterly reviews and stakeholder reporting.
+
         #### 8. Cross-Client Benchmarking
         *   **Goal:** Identify which clients need the most attention.
         *   **Action:** Scan transcripts from 3–4 different clients separately. Note each client's composite score and lowest-scoring domains.
@@ -2396,6 +2446,10 @@ def render_use_cases():
 def render_analyst_help():
     with st.expander("🎓 Analyst's Guide & Troubleshooting", expanded=False):
         st.markdown("""
+        **Symptom: The app output feels "wrong" right away**
+        *   **Fix:** Start with the Word Cloud and Frequency Tables. If those do not look right, the downstream charts will not be right either.
+        *   **Fix:** Check whether you scanned the correct text column, or accidentally left old data in additive mode.
+
         **Symptom: The Network Graph is a "Giant Blob"**
         *   **Fix:** Increase **'Min Link Frequency'** (Slider) to cut weak ties.
         *   **Fix:** Increase **'Repulsion'** (Physics) to push nodes apart.
@@ -2411,9 +2465,19 @@ def render_analyst_help():
         *   **Fix:** Check **'Rows per Document'**. 
             *   For **Chat Logs/Tweets**, keep it low (1-5).
             *   For **Books/Reports**, increase it (50-100) so the engine understands the "context window."
-        
+        *   **Fix:** Try **NMF** for shorter, cleaner records and **LDA** for longer mixed-content documents.
+        *   **Fix:** Add recurring boilerplate terms to **Stopwords** so the model can focus on actual subject matter.
+
         **Symptom: High-ranking words are boring (e.g., "page", "copyright")**
         *   **Fix:** These are "Corpus Artifacts." Add them to the **Stopwords** list in the sidebar to reveal the true signal underneath.
+
+        **Symptom: Trend charts are empty**
+        *   **Fix:** Re-scan the data after selecting the correct date column in the file config panel.
+        *   **Fix:** Check whether the source dates are parseable (e.g. `2025-01-31`, `01/31/2025`, `Jan 31 2025`).
+
+        **Symptom: The maturity result feels too generic**
+        *   **Fix:** Make sure the selected persona matches the document type.
+        *   **Fix:** Feed it more actual meeting notes / transcripts and less boilerplate or exported system text.
         """)
 
 # visualization helpers
@@ -2488,7 +2552,12 @@ analyzer, lemmatizer = setup_nlp_resources()
 # --- SIDEBAR (Global Inputs) ---
 with st.sidebar:
     st.header("📂 Data Input")
-    uploaded_files = st.file_uploader("Upload Files", type=["csv", "xlsx", "vtt", "txt", "json", "pdf", "pptx"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader(
+        "Upload Files",
+        type=["csv", "xlsx", "vtt", "txt", "json", "pdf", "pptx"],
+        accept_multiple_files=True,
+        help="Upload one or more source files. CSV/XLSX are best for structured data, VTT/TXT for transcripts, PDF/PPTX for document decks, and JSON for offline sketches.",
+    )
     
     # --modified logic (Additive Mode Safety)
     
@@ -2496,7 +2565,11 @@ with st.sidebar:
     has_data = st.session_state['sketch'].total_rows_processed > 0
     
     # showing the checkbox
-    clear_on_scan = st.checkbox("Clear previous data", value=False)
+    clear_on_scan = st.checkbox(
+        "Clear previous data",
+        value=False,
+        help="Turn this on when you want a fresh analysis. Leave it off only when you intentionally want to add new files into the current corpus.",
+    )
     
     # 'banner' logic: only showing if there's ambiguity
     if has_data and not clear_on_scan:
@@ -2512,8 +2585,16 @@ with st.sidebar:
 
     # 1. quick imports (web/text)
     with st.expander("🌐 Quick Web / Text Paste"):
-        url_input = st.text_area("URLs (1 per line)", placeholder="https://example.com/article")
-        manual_input = st.text_area("Manual Text Paste", placeholder="Paste raw text content here...")
+        url_input = st.text_area(
+            "URLs (1 per line)",
+            placeholder="https://example.com/article",
+            help="Paste public URLs to scrape page text into the current scan. Best for articles, public reports, and web pages with readable body text.",
+        )
+        manual_input = st.text_area(
+            "Manual Text Paste",
+            placeholder="Paste raw text content here...",
+            help="Use this for notes, excerpts, transcripts, or ad hoc text that you do not want to upload as a file.",
+        )
 
     # 2. offline / enterprise import ("harvester")
     with st.expander("📡 Load Offline Analysis (Harvester)", expanded=False):
@@ -2625,8 +2706,8 @@ with st.sidebar:
     st.markdown("**Cleaning**")
     clean_conf = CleaningConfig(
         remove_chat=st.checkbox("Remove Chat Artifacts", True, help="Strips metadata like timestamps, usernames (e.g., <@U1234>), and system messages from logs/transcripts to focus purely on the conversation content."),
-        remove_html=st.checkbox("Remove HTML", True),
-        remove_urls=st.checkbox("Remove URLs", True),
+        remove_html=st.checkbox("Remove HTML", True, help="Removes HTML tags such as <div>, <br>, and other markup from exported web or LMS content."),
+        remove_urls=st.checkbox("Remove URLs", True, help="Removes links and email addresses so they do not pollute the vocabulary and graph."),
         unescape=st.checkbox("Unescape HTML", True, help="Converts coded entities (e.g., &amp ; amp;, &amp ; quot;) back into readable symbols (&, \").")
     )
     
@@ -2635,26 +2716,34 @@ with st.sidebar:
     if use_lemma and lemmatizer is None: st.warning("NLTK Lemmatizer not found.")
     
     proc_conf = ProcessingConfig(
-        min_word_len=st.slider("Min Word Len", 1, 10, 4),
-        drop_integers=st.checkbox("Drop Integers", True),
-        compute_bigrams=st.checkbox("Bigrams", True),
+        min_word_len=st.slider("Min Word Len", 1, 10, 4, help="Filters out very short tokens. Lower this for acronyms and short jargon; raise it if you want to suppress generic small words."),
+        drop_integers=st.checkbox("Drop Integers", True, help="Removes standalone numbers from the analysis. Turn this off if numbers themselves carry meaning in your corpus."),
+        compute_bigrams=st.checkbox("Bigrams", True, help="Tracks two-word phrases such as 'student success' or 'change management'. Required for NPMI, graph strength, and phrase-style maturity signals."),
         use_lemmatization=use_lemma,
-        translate_map=build_punct_translation(st.checkbox("Keep Hyphens"), st.checkbox("Keep Apostrophes"))
+        translate_map=build_punct_translation(
+            st.checkbox("Keep Hyphens", help="Useful when hyphenated terms matter, such as 'cross-functional' or 'competency-based'."),
+            st.checkbox("Keep Apostrophes", help="Useful if apostrophes are meaningful in your text, but most corpora are cleaner with them removed."),
+        )
     )
     
     # stopwords
-    user_sw = st.text_area("Stopwords (comma-separated)", "firstname.lastname, jane doe, okay, ok, really")
+    user_sw = st.text_area(
+        "Stopwords (comma-separated)",
+        "firstname.lastname, jane doe, okay, ok, really",
+        help="Add domain-specific junk words, recurring names, or boilerplate terms you want removed before analysis.",
+    )
     phrases, singles = parse_user_stopwords(user_sw)
     clean_conf.phrase_pattern = build_phrase_pattern(phrases)
     stopwords = set(STOPWORDS).union(singles)
-    if st.checkbox("Remove Prepositions", True): stopwords.update(default_prepositions())
+    if st.checkbox("Remove Prepositions", True, help="Removes common linking words like 'of', 'to', and 'with'. Usually helpful unless those words matter in your domain language."):
+        stopwords.update(default_prepositions())
     proc_conf.stopwords = stopwords
     
     st.markdown("### 🎨 Appearance")
     bg_color = st.color_picker("Background Color", "#000000")
     colormap = st.selectbox("Colormap", ["viridis", "plasma", "inferno", "magma", "cividis", "tab10", "Blues", "Reds", "Greys"], 0)
-    top_n = st.number_input("Top Terms to Display", min_value=5, max_value=1000, value=51)
-    max_words = st.slider("Max Words (Cloud)", 50, 3000, 1000, 50)
+    top_n = st.number_input("Top Terms to Display", min_value=5, max_value=1000, value=51, help="Controls table depth and how many top terms or bigrams are shown in ranked outputs.")
+    max_words = st.slider("Max Words (Cloud)", 50, 3000, 1000, 50, help="Controls how many words are eligible for the word cloud. Higher values create denser clouds, but can make them harder to read.")
     
     # font selection
     font_map, font_names = list_system_fonts(), list(list_system_fonts().keys())
@@ -2662,11 +2751,11 @@ with st.sidebar:
     desired_font = "DejaVu Sans Mono"
     if desired_font in font_names:
         default_font_idx = font_names.index(desired_font)
-    combined_font_name = st.selectbox("Font", font_names or ["(default)"], 0)
+    combined_font_name = st.selectbox("Font", font_names or ["(default)"], 0, help="Applies to generated word clouds and some rendered visual outputs.")
     combined_font_path = font_map.get(combined_font_name) if font_names else None
 
     st.markdown("### 🔬 Sentiment")
-    enable_sentiment = st.checkbox("Enable Sentiment", False)
+    enable_sentiment = st.checkbox("Enable Sentiment", False, help="Adds sentiment scoring to top terms, bigrams, and the Bayesian sentiment view. Best used on opinion-rich text, not neutral technical exports.")
     if enable_sentiment and analyzer is None:
         st.error("NLTK not found.")
         enable_sentiment = False
@@ -2686,7 +2775,7 @@ with st.sidebar:
         "Rows per Doc", 
         options=[1, 5, 10, 100, 500], 
         value=5,
-        help="How many lines of text form one 'Document'. Use 1-5 for Chat Logs/Tweets. Use 100+ for Books/Reports."
+        help="Defines how much text gets grouped into one synthetic document for topic modeling and TF-IDF-like behavior. Use 1-5 for chats, tickets, and transcripts. Use 100+ for books, reports, and long PDFs."
     )
     st.session_state['sketch'].set_batch_size(doc_granularity)
     
@@ -2704,15 +2793,16 @@ with st.sidebar:
     topic_model_type = st.selectbox(
         "Topic Model", 
         ["LDA", "NMF"],
-        help="LDA: Best for long text with mixed topics (Probabilistic). NMF: Best for short text with distinct topics (Linear Algebra)."
+        help="LDA is better for longer documents where each chunk may mix several themes. NMF is better for shorter, cleaner records where topics should separate more sharply."
     )
+    st.caption("Topic model rule of thumb: use **NMF** for shorter rows and transcripts; use **LDA** for longer reports and mixed-content documents.")
     
     # Updated with help text
     n_topics = st.slider(
         "Topics", 
         2, 10, 
         4,
-        help="The number of distinct themes the AI should attempt to find."
+        help="How many topic buckets to generate. Start with 3-5. If topics feel too broad, increase it slightly. If they feel repetitive or noisy, decrease it."
     )
 
 # --- TABS LAYOUT ---
@@ -2865,9 +2955,9 @@ with tab_work:
                         if headers:
                             scan_settings["has_header"] = True
                             st.info(f"Detected {len(headers)} columns.")
-                            scan_settings["text_cols"] = st.multiselect("Text Columns", headers, default=[headers[0]], key=f"txt_{idx}")
-                            scan_settings["date_col"] = st.selectbox("Date Column (Optional)", ["(None)"] + headers, key=f"date_{idx}")
-                            scan_settings["cat_col"] = st.selectbox("Category Column (Optional)", ["(None)"] + headers, key=f"cat_{idx}")
+                            scan_settings["text_cols"] = st.multiselect("Text Columns", headers, default=[headers[0]], key=f"txt_{idx}", help="Choose the column or columns that contain the main text you want analyzed.")
+                            scan_settings["date_col"] = st.selectbox("Date Column (Optional)", ["(None)"] + headers, key=f"date_{idx}", help="Pick a date-like column if you want the Trends tab and time slider to work.")
+                            scan_settings["cat_col"] = st.selectbox("Category Column (Optional)", ["(None)"] + headers, key=f"cat_{idx}", help="Optional grouping field. Useful when the file contains segments such as department, source, or content type.")
                             
                             if scan_settings["date_col"] == "(None)": scan_settings["date_col"] = None
                             if scan_settings["cat_col"] == "(None)": scan_settings["cat_col"] = None
@@ -2875,11 +2965,11 @@ with tab_work:
                             st.warning("No headers detected. Scanning as raw text.")
                     elif is_xlsx:
                         sheets = get_excel_sheetnames(file_bytes)
-                        scan_settings["sheet_name"] = st.selectbox("Sheet", sheets, key=f"sheet_{idx}")
+                        scan_settings["sheet_name"] = st.selectbox("Sheet", sheets, key=f"sheet_{idx}", help="Choose the Excel sheet that contains the text you want to analyze.")
                         if scan_settings["sheet_name"]:
-                             scan_settings["has_header"] = st.checkbox("Has Header Row", True, key=f"xls_head_{idx}")
+                             scan_settings["has_header"] = st.checkbox("Has Header Row", True, key=f"xls_head_{idx}", help="Leave this on if the first row contains column names rather than actual text data.")
                     elif is_json:
-                        scan_settings["json_key"] = st.text_input("JSON Key (Optional)", "", key=f"json_{idx}")
+                        scan_settings["json_key"] = st.text_input("JSON Key (Optional)", "", key=f"json_{idx}", help="For line-delimited JSON objects, enter the field that contains the text to analyze.")
 
                 if st.button(f"Start Scan: {fname}", key=f"btn_{idx}"):
                     if clear_on_scan: reset_sketch()
