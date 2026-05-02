@@ -1229,48 +1229,102 @@ class MaturityAssessor:
         ax.patch.set_alpha(0.0)
 
         return fig
-
-    def render_domain_radar_chart(self, result: Dict):
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    def render_domain_radar_chart(
+        self,
+        result: Dict,
+        font_family: str = "sans-serif",
+        label_size: int = 9,
+        label_color: str = "#222222",
+        wrap_width: int = 14,
+        show_tier_labels: bool = True,
+        tier_label_angle: int = 35,
+    ):
         """12-spoke spider chart for domain-based assessment."""
         if not result or result.get("type") != "domain_based":
             return None
+
+        import textwrap
+
         domain_results = result["domain_results"]
         labels = []
         values = []
         colors = []
+
         for key in sorted(domain_results.keys()):
             dr = domain_results[key]
-            labels.append(dr["short"])
+            wrapped_label = "\n".join(
+                textwrap.wrap(str(dr["short"]), width=max(6, wrap_width))
+            )
+            labels.append(wrapped_label)
             values.append(dr["score"])
+
             if dr["score"] >= 2.5:
                 colors.append("#2ca02c")
             elif dr["score"] >= 1.5:
                 colors.append("#ff7f0e")
             else:
                 colors.append("#d62728")
+
         n = len(labels)
         if n == 0:
             return None
+
         values_closed = values + values[:1]
         angles = np.linspace(0, 2 * np.pi, n, endpoint=False).tolist()
         angles_closed = angles + angles[:1]
-        fig, ax = plt.subplots(figsize=(7, 7), subplot_kw=dict(polar=True))
-        ax.fill(angles_closed, values_closed, color='#1f77b4', alpha=0.15)
-        ax.plot(angles_closed, values_closed, color='#1f77b4', linewidth=2)
-        for i, (angle, val, color) in enumerate(zip(angles, values, colors)):
+
+        fig, ax = plt.subplots(figsize=(8.2, 8.2), subplot_kw=dict(polar=True))
+        ax.fill(angles_closed, values_closed, color="#1f77b4", alpha=0.15)
+        ax.plot(angles_closed, values_closed, color="#1f77b4", linewidth=2)
+
+        for angle, val, color in zip(angles, values, colors):
             ax.scatter(angle, val, color=color, s=80, zorder=5)
+
         ax.set_theta_offset(np.pi / 2)
         ax.set_theta_direction(-1)
         ax.set_xticks(angles)
-        ax.set_xticklabels(labels, fontsize=8)
+        ax.set_xticklabels(
+            labels,
+            fontsize=label_size,
+            fontfamily=font_family,
+            color=label_color,
+        )
+
+        # Move domain labels outward to reduce collisions with ring labels.
+        ax.tick_params(axis="x", pad=18)
+
         ax.set_ylim(0, 3.0)
         ax.set_yticks([1.0, 2.0, 3.0])
-        ax.set_yticklabels(["Foundational", "Advanced", "Leading Edge"], fontsize=7)
+
+        if show_tier_labels:
+            ax.set_yticklabels(
+                ["Foundational", "Advanced", "Leading\nEdge"],
+                fontsize=max(7, label_size - 2),
+                fontfamily=font_family,
+                color=label_color,
+            )
+        else:
+            ax.set_yticklabels(
+                ["1.0", "2.0", "3.0"],
+                fontsize=max(7, label_size - 2),
+                fontfamily=font_family,
+                color=label_color,
+            )
+
+        # Move maturity ring labels away from the crowded top-right label area.
+        ax.set_rlabel_position(tier_label_angle)
+
         ax.spines["polar"].set_visible(False)
-        ax.grid(color='#444444', linestyle='--', alpha=0.5)
+        ax.grid(color="#444444", linestyle="--", alpha=0.5)
         fig.patch.set_alpha(0.0)
         ax.patch.set_alpha(0.0)
+        fig.tight_layout(pad=2.5)
+
         return fig
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        
+        
     def render_domain_breakdown_chart(self, result: Dict):
         """Horizontal stacked bar chart showing tier distribution per domain."""
         if not result or result.get("type") != "domain_based":
@@ -2496,23 +2550,50 @@ with st.sidebar:
     
     if st.session_state['authenticated']:
         st.success("Unlocked")
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
         with st.expander("🤖 Provider Settings", expanded=True):
-            ai_provider = st.radio("Provider", ["xAI (Grok)", "OpenAI (GPT-4o)"])
-            if "OpenAI" in ai_provider:
+            ai_provider = st.radio(
+                "Provider",
+                ["DeepSeek AI", "xAI (Grok)", "OpenAI (GPT-4o)"],
+                index=0,
+            )
+
+            if ai_provider == "DeepSeek AI":
+                api_key_name = "deepseek_api_key"
+                base_url = "https://api.deepseek.com"
+                model_name = st.selectbox(
+                    "Model",
+                    ["deepseek-v4-flash", "deepseek-v4-pro"],
+                    index=0,
+                )
+                # Pricing can change; these placeholders keep the existing
+                # cost-estimator plumbing working without affecting API calls.
+                price_in, price_out = 0.00, 0.00
+
+            elif "OpenAI" in ai_provider:
                 api_key_name = "openai_api_key"
-                base_url = None 
+                base_url = None
                 model_name = st.selectbox("Model", ["gpt-4o", "gpt-4o-mini"])
                 price_in, price_out = (0.15, 0.60) if "mini" in model_name else (2.50, 10.00)
+
             else:
                 api_key_name = "xai_api_key"
                 base_url = "https://api.x.ai/v1"
-                model_name = "grok-4-0709" 
+                model_name = "grok-4-0709"
                 price_in, price_out = 3.00, 15.00
-            
+
             api_key = st.secrets.get(api_key_name)
-            if not api_key: api_key = st.text_input(f"Enter {api_key_name}", type="password")
-            
-            ai_config = {'api_key': api_key, 'base_url': base_url, 'model_name': model_name, 'price_in': price_in, 'price_out': price_out}
+            if not api_key:
+                api_key = st.text_input(f"Enter {api_key_name}", type="password")
+
+            ai_config = {
+                "api_key": api_key,
+                "base_url": base_url,
+                "model_name": model_name,
+                "price_in": price_in,
+                "price_out": price_out,
+            }
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
         with st.expander("💰 Cost Estimator", expanded=False):
             c1, c2 = st.columns(2)
@@ -3109,10 +3190,72 @@ with tab_work:
                             f"{maturity_result['total_signals_found']}"
                         )
                     # --- Radar Chart ---
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+                    # --- Radar Chart ---
                     st.markdown("#### 🕸️ Domain Maturity Radar")
-                    fig_radar = assessor.render_domain_radar_chart(maturity_result)
+
+                    with st.expander("🎨 Radar font controls", expanded=False):
+                        font_col1, font_col2, font_col3 = st.columns(3)
+
+                        with font_col1:
+                            radar_font_family = st.selectbox(
+                                "Font family",
+                                ["sans-serif", "serif", "monospace", "DejaVu Sans", "Arial"],
+                                index=0,
+                                key="radar_font_family",
+                            )
+                            radar_label_size = st.slider(
+                                "Domain label size",
+                                min_value=6,
+                                max_value=16,
+                                value=9,
+                                step=1,
+                                key="radar_label_size",
+                            )
+
+                        with font_col2:
+                            radar_label_color = st.color_picker(
+                                "Label color",
+                                value="#222222",
+                                key="radar_label_color",
+                            )
+                            radar_wrap_width = st.slider(
+                                "Domain label wrap width",
+                                min_value=6,
+                                max_value=24,
+                                value=14,
+                                step=1,
+                                key="radar_wrap_width",
+                            )
+
+                        with font_col3:
+                            radar_show_tier_labels = st.checkbox(
+                                "Show tier names",
+                                value=True,
+                                key="radar_show_tier_labels",
+                            )
+                            radar_tier_label_angle = st.slider(
+                                "Tier label angle",
+                                min_value=0,
+                                max_value=359,
+                                value=35,
+                                step=5,
+                                key="radar_tier_label_angle",
+                            )
+
+                    fig_radar = assessor.render_domain_radar_chart(
+                        maturity_result,
+                        font_family=radar_font_family,
+                        label_size=radar_label_size,
+                        label_color=radar_label_color,
+                        wrap_width=radar_wrap_width,
+                        show_tier_labels=radar_show_tier_labels,
+                        tier_label_angle=radar_tier_label_angle,
+                    )
+
                     if fig_radar:
                         st.pyplot(fig_radar, use_container_width=True)
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                     st.caption(
                         "🔴 Foundational (<1.5) | 🟠 Advanced (1.5–2.5) | "
                         "🟢 Leading Edge (>2.5)"
