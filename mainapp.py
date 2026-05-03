@@ -2375,171 +2375,48 @@ def render_neurotech_case_study():
         """, unsafe_allow_html=True)
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 def render_maturity_guide():
     with st.expander("🏆 Guide: Understanding the Maturity Models", expanded=False):
         st.markdown("""
         ### What is the Maturity Engine?
 
-        The Maturity Engine is an interpretive layer on top of the text scan. Standard analytics answer **"what words appear?"** The maturity layer asks **"what level of capability does this language suggest?"**
-
-        It does this by comparing the cleaned vocabulary and phrases in your corpus against maturity-model dictionaries.
-
-        ---
-
-        ### 🎭 Choose the Right Persona
-
-        Words change meaning depending on context, so the selected persona matters.
-
-        #### 1. 🏫 EdTech & LMS Ops — 5-Level
-        **Best for:** course designs, syllabi, instructional strategy, LMS usage notes.  
-        **Example signal:** "upload" and "PDF" suggest repository-style use; "analytics," "equity," and "governance" suggest more strategic LMS use.
-
-        #### 2. 🏢 General Business Ops — 5-Level
-        **Best for:** project logs, operational reports, corporate notes, internal planning docs.  
-        **Example signal:** "urgent" and "fix" suggest reactive operations; "KPI," "forecast," and "strategy" suggest measured or optimized operations.
-
-        #### 3. ⚖️ Policy & Governance — 5-Level
-        **Best for:** policy documents, compliance reports, governance reviews.  
-        **Example signal:** "violation" and "sanction" suggest enforcement; "sustainable," "holistic," and "resilient" suggest systemic governance.
-
-        #### 4. 🎓 Brightspace Maturity Model — 12-Domain
-        **Best for:** TAM notes, client meeting transcripts, coaching sessions, strategic reviews, LMS administration conversations.
-
-        This model scores 12 separate Brightspace administration domains:
-
-        1. Platform & Technical Administration  
-        2. Curriculum Development & Delivery  
-        3. Student Engagement & Success  
-        4. Data & Learning Analytics  
-        5. Assessment & Evaluation  
-        6. Instructor Efficiency  
-        7. Change Management  
-        8. Knowledge & Resource Management  
-        9. Accessibility & Compliance  
-        10. User Support & Training  
-        11. Innovation & Emerging Technologies  
-        12. Collaboration & Communication  
-
-        ---
-
-        ### 🧮 How Scoring Works
-
-        #### For 5-Level Personas
-        The app calculates a weighted average across maturity levels 1–5.
-
-        * **L1 language** pulls the score toward 1.0.
-        * **L3 language** pulls the score toward the middle.
-        * **L5 language** pulls the score toward 5.0.
-
-        #### For the 12-Domain Brightspace Model
-        Each domain is scored separately from 1.0 to 3.0:
-
-        | Tier | Label | Score Range | Plain-language meaning |
-        |------|-------|-------------|------------------------|
-        | 🔴 | Foundational | 1.0 – 1.49 | Basic, manual, reactive, getting started |
-        | 🟠 | Advanced | 1.50 – 2.49 | Structured, documented, proactive, repeatable |
-        | 🟢 | Leading Edge | 2.50 – 3.0 | Strategic, automated, innovative, continuously improving |
-
-        The **Composite Score** is the average of domains that had at least one detected signal. Domains with no signal are shown as **No Data** and excluded from the composite.
-
-        ---
-
-        ### ⚙️ Important: Preprocessing Settings Affect Maturity
-
-        Maturity scoring uses the same cleaned token stream as the rest of the dashboard. That means sidebar settings can change the maturity result.
-
-        **Settings that can affect maturity scoring:**
-
-        * **Min Word Len** — can remove short but important signals such as `API`, `LTI`, `SSO`, or `AI` if set too high.
-        * **Stopwords** — removes words before scoring. The app protects known maturity-model vocabulary, but custom stopwords can still change the broader analysis.
-        * **Remove Generic Filler Words and Prepositions** — removes low-signal words such as "something" or "thing" while preserving maturity vocabulary.
-        * **Use Lemmatization** — may merge related forms such as "configured" and "configure."
-        * **Keep Hyphens** — can matter for terms such as "cross-functional" or "competency-based."
-        * **Bigrams** — should usually stay on because phrase matches carry extra weight.
-
-        **Safe default:** keep `Min Word Len` at 4 for general exploration, but lower it to 2 or 3 if your corpus uses many short acronyms or product terms.
-
-        ---
-
-        ### 🕸️ How to Read the Radar Chart
-
-        **Rounder shape:** maturity is relatively balanced across levels or domains.  
-        **Spiky shape:** the corpus shows strengths in some areas and gaps in others.  
-        **Center / near-zero spoke:** little or no vocabulary signal was detected for that level or domain.
-
-        For the 12-domain model, a domain can show **No Data**. That does not mean the domain is unimportant. It means the uploaded text did not contain enough matching language for that domain.
-
-        ---
-
-        ### 📊 How to Read the Breakdown Chart
-
-        In the 12-domain model, each horizontal bar shows how that domain's detected signals are distributed:
-
-        * 🔴 **Foundational** = manual, basic, reactive language
-        * 🟠 **Advanced** = structured, proactive, documented language
-        * 🟢 **Leading Edge** = strategic, automated, innovative language
-
-        A domain with many signals and mostly red may be a coaching opportunity. A domain with no signals may require more source material or a different conversation prompt.
-
-        ---
-
-        ### 🔍 Linguistic Drivers
-
-        Domain cards show the actual terms and phrases that drove the score. Use these to validate the result:
-
-        * If the drivers look relevant, the score is probably meaningful.
-        * If the drivers look like boilerplate, add those terms to stopwords and rescan.
-        * If a domain shows No Data but you know it was discussed, the model vocabulary may need expansion.
-
-        ---
-
-        ### 💾 Export, Import, and Longitudinal Tracking
-
-        The Brightspace 12-domain model can export a JSON snapshot. Save one after each client review, coaching milestone, or quarterly check-in.
-
-        Later, upload multiple snapshots to see:
-
-        * composite maturity trend over time
-        * per-domain score movement
-        * domains improving, declining, or staying flat
-
-        ---
-
-        ### ⚠️ Caveats
-
-        > **Signal vs. reality:** The maturity engine measures language, not actual implementation. Treat it as a conversation starter and evidence aid, not a final audit.
-
-        > **Persona mismatch:** If you scan a generic business strategy memo with the Brightspace model, the score may look plausible but be contextually wrong.
-
-        > **Data quality matters:** Transcripts, coaching notes, and strategy discussions usually work better than exported system logs or boilerplate-heavy files.
-        """)
-#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         While standard analytics count *what* words appear, the Maturity Engine measures the **intent and capability** behind those words. It compares your text against known frameworks of organizational development.
+
         ---
+
         ### 🎭 The Personas (Context Matters!)
+
         Words change meaning based on context. You must select the model that matches your document's intent.
+
         #### 1. 🏫 EdTech & LMS Ops (5-Level)
-        *Best for: Course designs, Syllabi, Instructional Strategy docs.*
-        *   **L1 (Repository):** "Upload," "File," "PDF." (Static content dump).
-        *   **L3 (Integrated):** "LTI," "API," "Plugin." (Connected systems).
-        *   **L5 (Strategic):** "Equity," "UDL," "Governance." (Institutional impact).
+        *Best for: course designs, syllabi, LMS usage reviews, instructional strategy documents.*
+        *   **L1 (Repository):** Static content dumps and basic file hosting.
+        *   **L3 (Integrated):** Connected systems, tools, APIs, and interoperability.
+        *   **L5 (Strategic):** Institutional thinking around equity, accessibility, and transformation.
+
         #### 2. 🏢 General Business Ops (5-Level, CMMI)
-        *Best for: Corporate reports, Project logs, Emails.*
-        *   **L1 (Reactive):** "Urgent," "Fix," "Panic." (Heroic effort).
-        *   **L4 (Measured):** "KPI," "Variance," "ROI." (Data-driven).
+        *Best for: project updates, business operations notes, internal reports, emails.*
+        *   **L1 (Reactive):** Urgent, manual, firefighting language.
+        *   **L4 (Measured):** KPI, ROI, forecasting, and quantitative management language.
+
         #### 3. ⚖️ Policy & Governance (5-Level)
-        *Best for: Policy docs, Compliance reports, Government/NGO publications.*
-        *   **L1 (Enforcement):** "Violation," "Ban," "Sanction." (Reactive controls).
-        *   **L5 (Systemic):** "Sustainable," "Holistic," "Resilient." (Long-term vision).
-        #### 4. 🎓 Brightspace Maturity Model — 12-Domain (3-Tier) ⭐ NEW
-        *Best for: Meeting transcripts, Coaching session notes, Client strategic reviews, TAM engagement notes.*
-        This persona aligns with the **official Brightspace Admin Maturity Model**. Instead of one overall score, it evaluates the client across **12 distinct domains**, each scored on 3 tiers:
-        | Tier | Label | Score Range | What It Means |
-        |------|-------|-------------|---------------|
-        | 🔴 | **Foundational** | 1.0 – 1.49 | Basic, manual, reactive. Getting started. |
-        | 🟠 | **Advanced** | 1.50 – 2.49 | Structured, documented, proactive. Best practices emerging. |
-        | 🟢 | **Leading Edge** | 2.50 – 3.0 | Strategic, automated, innovative. Continuous improvement culture. |
-        **The 12 Domains:**
+        *Best for: policy documents, compliance reviews, NGO/government publications.*
+        *   **L1 (Enforcement):** Violations, bans, restrictions, sanctions.
+        *   **L5 (Systemic):** Sustainable, resilient, holistic, ecosystem-level language.
+
+        #### 4. 🎓 Brightspace Maturity Model — 12-Domain (3-Tier)
+        *Best for: meeting transcripts, coaching notes, strategic reviews, TAM/client discussions.*
+
+        This persona evaluates the client across **12 separate domains**, each scored on 3 tiers:
+
+        | Tier | Label | Score Range | Meaning |
+        |------|-------|-------------|---------|
+        | 🔴 | **Foundational** | 1.0–1.49 | Basic, manual, reactive |
+        | 🟠 | **Advanced** | 1.50–2.49 | Structured, proactive, repeatable |
+        | 🟢 | **Leading Edge** | 2.50–3.0 | Strategic, scalable, innovation-oriented |
+
+        **The 12 Domains**
         1. Platform & Technical Administration
         2. Curriculum Development & Delivery
         3. Student Engagement & Success
@@ -2552,61 +2429,67 @@ def render_maturity_guide():
         10. User Support & Training
         11. Innovation & Emerging Technologies
         12. Collaboration & Communication
+
         ---
-        ### 🧮 How is the Score Calculated?
-        **For 5-Level Personas (EdTech, Business, Policy):**
-        *   *Formula:* `(Count_L1 × 1) + (Count_L2 × 2) + ... + (Count_L5 × 5) / Total_Hits`
-        *   *Range:* 1.0 to 5.0
-        **For the 12-Domain Persona:**
-        *   Each domain is scored independently using the same weighted formula, but with **3 tiers** (1–3 instead of 1–5).
-        *   The **Composite Score** is the average across all domains that had at least one signal.
-        *   *Range:* 1.0 to 3.0
-        *   Domains with zero signal are excluded from the composite (shown as "No Data").
-        **Phrase Matching:**
-        Multi-word phrases like "intelligent agents" or "release conditions" carry a **1.5× weight** compared to single words. This rewards specificity.
+
+        ### 🧮 How Scoring Works
+
+        **For the 5-level personas**
+        *   Weighted average across the detected maturity-level signals.
+        *   Score range: **1.0 to 5.0**
+
+        **For the 12-domain Brightspace persona**
+        *   Each domain is scored independently using tiers 1-3.
+        *   The composite score is the average of all domains with at least one signal.
+        *   Score range: **1.0 to 3.0**
+        *   Domains with zero signal are shown as **No Data** and excluded from the composite.
+
+        **Phrase weighting**
+        *   Multi-word phrases receive extra weight relative to single words because they are usually more specific signals.
+
         ---
-        ### 🕸️ How to Read the Radar Chart
-        **5-Level Radar (EdTech, Business, Policy):**
-        *   **5 spokes**, one per maturity level (L1–L5).
-        *   **Round shape** = Alignment. **Spike shape** = Gap.
-        **12-Domain Radar (Brightspace Maturity Model):**
-        *   **12 spokes**, one per domain.
-        *   Each spoke reaches from 0 to 3.0 (Foundational → Leading Edge).
-        *   **Colored dots** indicate the tier: 🔴 Foundational, 🟠 Advanced, 🟢 Leading Edge.
-        *   **Round shape** = Balanced maturity. **Uneven shape** = Domain-specific strengths and gaps.
-        ### 📊 How to Read the Breakdown Chart
-        **Horizontal Stacked Bars (12-Domain only):**
-        *   Each bar represents one domain.
-        *   Split into 3 colors: 🔴 Foundational %, 🟠 Advanced %, 🟢 Leading Edge %.
-        *   Domains with the most red are candidates for the coaching plan.
-        ### 📈 How to Read the Trend Charts
-        **Composite Score Trend:**
-        *   Line chart showing the overall 1.0–3.0 score across uploaded snapshots over time.
-        *   Background bands show tier zones (red/orange/green).
-        **Per-Domain Trend:**
-        *   Multi-line chart showing each domain's score across snapshots.
-        *   Identifies which domains are improving, stalling, or declining.
-        **Domain Movement Table:**
-        *   Compares first uploaded snapshot to latest (or current live assessment).
-        *   Shows ⬆️ Improved / ⬇️ Declined / ➡️ No Change per domain.
-        ### 💾 Export & Import
-        **Exporting:**
-        *   Enter the client name and click Download to save a JSON snapshot.
-        *   Filename format: `ClientName_Maturity_Assessment_YYYY-MM-DD.json`
-        *   The JSON is structured and versioned — future layout changes won't break old files.
-        **Importing for Progress Tracking:**
-        *   Upload 2+ previous snapshots to see trend charts and the movement table.
-        *   The current live assessment is automatically appended as the latest data point.
-        ### 🔍 Linguistic Drivers
-        **Expandable Domain Cards (12-Domain only):**
-        *   Each assessed domain has an expandable card showing tier distribution and the top 5 terms/phrases that drove the score.
-        *   Use this to validate *why* the engine scored a domain the way it did.
+
+        ### ⚙️ Important Processing Note
+
+        Maturity scoring uses the same cleaned token stream as the rest of the app. That means settings like:
+        *   **Min Word Len**
+        *   **Stopwords**
+        *   **Remove Generic Filler Words and Prepositions**
+        *   **Use Lemmatization**
+        *   **Keep Hyphens**
+        *   **Chat / HTML / URL cleanup**
+
+        can all affect the maturity result.
+
         ---
-        ### ⚠️ Important Caveats
-        > **Persona Mismatch Warning:** If you scan a corporate strategy document with the Brightspace model, the word "governance" will be scored as Leading Edge Platform Admin maturity rather than general business maturity. **Always match the Persona to the document type.**
-        > **Signal vs. Reality:** The engine measures *vocabulary*, not *implementation*. The maturity score reflects linguistic signals — use it as a *starting point* for deeper conversation, not a final verdict.
-        > **Minimum Data:** For best results, feed it 5+ pages of transcripts or notes from a client engagement.
+
+        ### 🕸️ How to Read the Charts
+
+        **5-Level Radar**
+        *   Round shape = balanced maturity
+        *   Sharp spikes = uneven capability
+
+        **12-Domain Radar**
+        *   One spoke per domain
+        *   Outer edge = stronger maturity signal
+        *   Uneven shape = domain-specific strengths and gaps
+
+        **12-Domain Breakdown Bars**
+        *   Red = Foundational share
+        *   Orange = Advanced share
+        *   Green = Leading Edge share
+
+        ---
+
+        ### ⚠️ Caveats
+
+        > **Signal vs. reality:** The maturity engine measures language, not actual implementation. Treat it as a conversation starter and evidence aid, not a final audit.
+
+        > **Persona mismatch:** If you scan a generic business strategy memo with the Brightspace model, the score may look plausible but be contextually wrong.
+
+        > **Data quality matters:** Transcripts, coaching notes, and strategy discussions usually work better than exported system logs or boilerplate-heavy files.
         """)
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 def render_use_cases():
     with st.expander("📖 Playbook: High-Value Use Cases", expanded=False):
