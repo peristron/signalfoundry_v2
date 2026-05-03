@@ -1514,8 +1514,22 @@ def parse_user_stopwords(raw: str) -> Tuple[List[str], List[str]]:
         else: singles.append(item.lower())
     return phrases, singles
 
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 def default_prepositions() -> set:
-    return {'about', 'above', 'across', 'after', 'against', 'along', 'among', 'around', 'at', 'before', 'behind', 'below', 'beneath', 'beside', 'between', 'beyond', 'but', 'by', 'concerning', 'despite', 'down', 'during', 'except', 'for', 'from', 'in', 'inside', 'into', 'like', 'near', 'of', 'off', 'on', 'onto', 'out', 'outside', 'over', 'past', 'regarding', 'since', 'through', 'throughout', 'to', 'toward', 'under', 'underneath', 'until', 'up', 'upon', 'with', 'within', 'without'}
+    return {
+        'about', 'above', 'across', 'after', 'against', 'along', 'among',
+        'around', 'at', 'before', 'behind', 'below', 'beneath', 'beside',
+        'between', 'beyond', 'but', 'by', 'concerning', 'despite', 'down',
+        'during', 'except', 'for', 'from', 'in', 'inside', 'into', 'like',
+        'near', 'of', 'off', 'on', 'onto', 'out', 'outside', 'over', 'past',
+        'regarding', 'since', 'through', 'throughout', 'to', 'toward', 'under',
+        'underneath', 'until', 'up', 'upon', 'with', 'within', 'without',
+        'something', 'someone', 'somebody', 'anything', 'anyone', 'anybody',
+        'everything', 'everyone', 'everybody', 'nothing', 'none', 'maybe',
+        'perhaps', 'really', 'basically', 'generally', 'kind', 'sort', 'stuff',
+        'thing', 'things'
+    }
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 def build_phrase_pattern(phrases: List[str]) -> Optional[re.Pattern]:
     if not phrases: return None
@@ -2748,8 +2762,14 @@ with st.sidebar:
     phrases, singles = parse_user_stopwords(user_sw)
     clean_conf.phrase_pattern = build_phrase_pattern(phrases)
     stopwords = set(STOPWORDS).union(singles)
-    if st.checkbox("Remove Prepositions", True, help="Removes common linking words like 'of', 'to', and 'with'. Usually helpful unless those words matter in your domain language."):
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    if st.checkbox(
+        "Remove Generic Filler Words and Prepositions",
+        True,
+        help="Removes common low-value linking words such as 'of', 'to', 'with', and similar filler terms that usually add noise rather than meaning.",
+    ):
         stopwords.update(default_prepositions())
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     proc_conf.stopwords = stopwords
     
     st.markdown("### 🎨 Appearance")
