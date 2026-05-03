@@ -1531,11 +1531,74 @@ def default_prepositions() -> set:
     }
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 def build_phrase_pattern(phrases: List[str]) -> Optional[re.Pattern]:
-    if not phrases: return None
+    if not phrases:
+        return None
     escaped = [re.escape(p) for p in phrases if p]
-    if not escaped: return None
+    if not escaped:
+        return None
     return re.compile(rf"\b(?:{'|'.join(escaped)})\b", flags=re.IGNORECASE)
+
+
+def collect_maturity_vocabulary() -> Set[str]:
+    """
+    Collects maturity-model vocabulary so maturity-critical words are not
+    accidentally removed by generic stopword / filler-word cleanup.
+
+    This intentionally includes:
+    - explicit one-word terms
+    - individual words from maturity phrases
+
+    Example: "student success" protects both "student" and "success".
+    """
+    protected_terms: Set[str] = set()
+
+    try:
+        assessor = MaturityAssessor()
+        for model in assessor.models.values():
+            if model.get("type") == "domain_based":
+                domain_iter = model.get("domains", {}).values()
+                for domain_data in domain_iter:
+                    for tier_data in domain_data.get("tiers", {}).values():
+                        for term in tier_data.get("terms", set()):
+                            protected_terms.add(str(term).lower())
+                        for phrase in tier_data.get("phrases", []):
+                            protected_terms.update(
+                                part.lower()
+                                for part in str(phrase).split()
+                                if part.strip()
+                            )
+            else:
+                for level_data in model.get("levels", {}).values():
+                    for term in level_data.get("terms", set()):
+                        protected_terms.add(str(term).lower())
+                    for phrase in level_data.get("phrases", []):
+                        protected_terms.update(
+                            part.lower()
+                            for part in str(phrase).split()
+                            if part.strip()
+                        )
+    except Exception:
+        # Safety-first fallback: never break app startup because help/protection
+        # vocabulary could not be collected.
+        return set()
+
+    return protected_terms
+
+
+def protect_maturity_vocabulary(stopwords: Set[str]) -> Set[str]:
+    """
+    Removes maturity-critical terms from the active stopword set.
+
+    This preserves maturity scoring while still allowing generic filler words
+    and user-entered junk terms to clean the broader analysis.
+    """
+    maturity_terms = collect_maturity_vocabulary()
+    if not maturity_terms:
+        return stopwords
+    return set(stopwords) - maturity_terms
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 def estimate_row_count_from_bytes(file_bytes: bytes) -> int:
     if not file_bytes: return 0
@@ -2311,10 +2374,146 @@ def render_neurotech_case_study():
         *   **The Insight:** Identifies the funding sources (DARP@) vs. the regulatory blockers (Geneva).
         """, unsafe_allow_html=True)
 
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 def render_maturity_guide():
     with st.expander("🏆 Guide: Understanding the Maturity Models", expanded=False):
         st.markdown("""
         ### What is the Maturity Engine?
+
+        The Maturity Engine is an interpretive layer on top of the text scan. Standard analytics answer **"what words appear?"** The maturity layer asks **"what level of capability does this language suggest?"**
+
+        It does this by comparing the cleaned vocabulary and phrases in your corpus against maturity-model dictionaries.
+
+        ---
+
+        ### 🎭 Choose the Right Persona
+
+        Words change meaning depending on context, so the selected persona matters.
+
+        #### 1. 🏫 EdTech & LMS Ops — 5-Level
+        **Best for:** course designs, syllabi, instructional strategy, LMS usage notes.  
+        **Example signal:** "upload" and "PDF" suggest repository-style use; "analytics," "equity," and "governance" suggest more strategic LMS use.
+
+        #### 2. 🏢 General Business Ops — 5-Level
+        **Best for:** project logs, operational reports, corporate notes, internal planning docs.  
+        **Example signal:** "urgent" and "fix" suggest reactive operations; "KPI," "forecast," and "strategy" suggest measured or optimized operations.
+
+        #### 3. ⚖️ Policy & Governance — 5-Level
+        **Best for:** policy documents, compliance reports, governance reviews.  
+        **Example signal:** "violation" and "sanction" suggest enforcement; "sustainable," "holistic," and "resilient" suggest systemic governance.
+
+        #### 4. 🎓 Brightspace Maturity Model — 12-Domain
+        **Best for:** TAM notes, client meeting transcripts, coaching sessions, strategic reviews, LMS administration conversations.
+
+        This model scores 12 separate Brightspace administration domains:
+
+        1. Platform & Technical Administration  
+        2. Curriculum Development & Delivery  
+        3. Student Engagement & Success  
+        4. Data & Learning Analytics  
+        5. Assessment & Evaluation  
+        6. Instructor Efficiency  
+        7. Change Management  
+        8. Knowledge & Resource Management  
+        9. Accessibility & Compliance  
+        10. User Support & Training  
+        11. Innovation & Emerging Technologies  
+        12. Collaboration & Communication  
+
+        ---
+
+        ### 🧮 How Scoring Works
+
+        #### For 5-Level Personas
+        The app calculates a weighted average across maturity levels 1–5.
+
+        * **L1 language** pulls the score toward 1.0.
+        * **L3 language** pulls the score toward the middle.
+        * **L5 language** pulls the score toward 5.0.
+
+        #### For the 12-Domain Brightspace Model
+        Each domain is scored separately from 1.0 to 3.0:
+
+        | Tier | Label | Score Range | Plain-language meaning |
+        |------|-------|-------------|------------------------|
+        | 🔴 | Foundational | 1.0 – 1.49 | Basic, manual, reactive, getting started |
+        | 🟠 | Advanced | 1.50 – 2.49 | Structured, documented, proactive, repeatable |
+        | 🟢 | Leading Edge | 2.50 – 3.0 | Strategic, automated, innovative, continuously improving |
+
+        The **Composite Score** is the average of domains that had at least one detected signal. Domains with no signal are shown as **No Data** and excluded from the composite.
+
+        ---
+
+        ### ⚙️ Important: Preprocessing Settings Affect Maturity
+
+        Maturity scoring uses the same cleaned token stream as the rest of the dashboard. That means sidebar settings can change the maturity result.
+
+        **Settings that can affect maturity scoring:**
+
+        * **Min Word Len** — can remove short but important signals such as `API`, `LTI`, `SSO`, or `AI` if set too high.
+        * **Stopwords** — removes words before scoring. The app protects known maturity-model vocabulary, but custom stopwords can still change the broader analysis.
+        * **Remove Generic Filler Words and Prepositions** — removes low-signal words such as "something" or "thing" while preserving maturity vocabulary.
+        * **Use Lemmatization** — may merge related forms such as "configured" and "configure."
+        * **Keep Hyphens** — can matter for terms such as "cross-functional" or "competency-based."
+        * **Bigrams** — should usually stay on because phrase matches carry extra weight.
+
+        **Safe default:** keep `Min Word Len` at 4 for general exploration, but lower it to 2 or 3 if your corpus uses many short acronyms or product terms.
+
+        ---
+
+        ### 🕸️ How to Read the Radar Chart
+
+        **Rounder shape:** maturity is relatively balanced across levels or domains.  
+        **Spiky shape:** the corpus shows strengths in some areas and gaps in others.  
+        **Center / near-zero spoke:** little or no vocabulary signal was detected for that level or domain.
+
+        For the 12-domain model, a domain can show **No Data**. That does not mean the domain is unimportant. It means the uploaded text did not contain enough matching language for that domain.
+
+        ---
+
+        ### 📊 How to Read the Breakdown Chart
+
+        In the 12-domain model, each horizontal bar shows how that domain's detected signals are distributed:
+
+        * 🔴 **Foundational** = manual, basic, reactive language
+        * 🟠 **Advanced** = structured, proactive, documented language
+        * 🟢 **Leading Edge** = strategic, automated, innovative language
+
+        A domain with many signals and mostly red may be a coaching opportunity. A domain with no signals may require more source material or a different conversation prompt.
+
+        ---
+
+        ### 🔍 Linguistic Drivers
+
+        Domain cards show the actual terms and phrases that drove the score. Use these to validate the result:
+
+        * If the drivers look relevant, the score is probably meaningful.
+        * If the drivers look like boilerplate, add those terms to stopwords and rescan.
+        * If a domain shows No Data but you know it was discussed, the model vocabulary may need expansion.
+
+        ---
+
+        ### 💾 Export, Import, and Longitudinal Tracking
+
+        The Brightspace 12-domain model can export a JSON snapshot. Save one after each client review, coaching milestone, or quarterly check-in.
+
+        Later, upload multiple snapshots to see:
+
+        * composite maturity trend over time
+        * per-domain score movement
+        * domains improving, declining, or staying flat
+
+        ---
+
+        ### ⚠️ Caveats
+
+        > **Signal vs. reality:** The maturity engine measures language, not actual implementation. Treat it as a conversation starter and evidence aid, not a final audit.
+
+        > **Persona mismatch:** If you scan a generic business strategy memo with the Brightspace model, the score may look plausible but be contextually wrong.
+
+        > **Data quality matters:** Transcripts, coaching notes, and strategy discussions usually work better than exported system logs or boilerplate-heavy files.
+        """)
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         While standard analytics count *what* words appear, the Maturity Engine measures the **intent and capability** behind those words. It compares your text against known frameworks of organizational development.
         ---
         ### 🎭 The Personas (Context Matters!)
@@ -2470,10 +2669,70 @@ def render_use_cases():
         *   **Value:** Helps TAMs and OS leadership prioritize resource allocation across the client portfolio.
         """)
 
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 def render_analyst_help():
     with st.expander("🎓 Analyst's Guide & Troubleshooting", expanded=False):
         st.markdown("""
-        **Symptom: The app output feels "wrong" right away**
+        ### Quick Diagnostic Rule
+
+        If the **Word Cloud** and **Frequency Tables** look wrong, the downstream outputs will also be wrong. Fix cleaning, stopwords, file columns, or scan mode first.
+
+        ---
+
+        **Symptom: The app output feels wrong right away**
+        * **Fix:** Confirm you scanned the correct file, sheet, and text column.
+        * **Fix:** Check whether **Clear previous data** was off and old data was accidentally merged into the current scan.
+        * **Fix:** Look at the top frequency table. If the top words are boilerplate, add them to **Stopwords** and rescan.
+
+        **Symptom: Important acronyms disappeared**
+        * **Likely cause:** **Min Word Len** is too high.
+        * **Fix:** Lower **Min Word Len** to 2 or 3 for acronym-heavy corpora such as API, LTI, SSO, AI, SIS, or WCAG.
+
+        **Symptom: Maturity results feel too low or missing domains**
+        * **Fix:** Confirm the selected maturity persona matches the source material.
+        * **Fix:** Lower **Min Word Len** if important short terms are being filtered out.
+        * **Fix:** Keep **Bigrams** enabled so phrase signals like "student success" and "change management" can be detected.
+        * **Fix:** Feed the model more relevant meeting notes, transcripts, coaching notes, or strategic review material.
+        * **Interpretation:** A **No Data** domain means no mapped language was detected for that domain. It does not prove the client lacks that capability.
+
+        **Symptom: Maturity result feels too generic**
+        * **Fix:** Use the domain detail cards. The top linguistic drivers tell you exactly why the score was produced.
+        * **Fix:** If drivers look like boilerplate, add that boilerplate to **Stopwords** and rescan.
+        * **Fix:** If a meaningful client-specific phrase is missing, the maturity vocabulary may need expansion.
+
+        **Symptom: Topics look like gibberish or random words**
+        * **Fix:** Check **Rows per Doc**.
+            * For chats, tickets, comments, and transcripts, use 1–5.
+            * For reports, PDFs, books, and long documents, use 100+.
+        * **Fix:** Try **NMF** for shorter, cleaner records.
+        * **Fix:** Try **LDA** for longer mixed-content documents.
+        * **Fix:** Add recurring boilerplate terms to **Stopwords**.
+
+        **Symptom: The Network Graph is a giant blob**
+        * **Fix:** Increase **Min Link Frequency** to cut weak connections.
+        * **Fix:** Increase **Repulsion** to push nodes apart.
+        * **Fix:** Lower **Max Nodes** to focus on the most important terms.
+
+        **Symptom: The Graph has disconnected islands**
+        * **Fix:** Decrease **Min Link Frequency** to reveal subtler connections.
+        * **Fix:** Increase **Edge Length** to give clusters room to breathe.
+
+        **Symptom: Seeing duplicates such as "run" and "running"**
+        * **Fix:** Enable **Use Lemmatization**. This can merge word variations into a shared root form.
+
+        **Symptom: High-ranking words are boring, such as "page", "copyright", or "transcript"**
+        * **Fix:** These are corpus artifacts. Add them to **Stopwords** and rescan.
+        * **Fix:** For transcripts, keep **Remove Chat Artifacts** enabled.
+
+        **Symptom: Trend charts are empty**
+        * **Fix:** Re-scan after selecting the correct date column in the file config panel.
+        * **Fix:** Check whether source dates are parseable, such as `2025-01-31`, `01/31/2025`, or `Jan 31 2025`.
+
+        **Symptom: AI Analyst answer seems too vague**
+        * **Fix:** The AI Analyst only sees the statistical sketch, not raw documents.
+        * **Fix:** Ask narrower questions about visible outputs, such as "Which maturity domains look weakest?" or "Which graph clusters appear most central?"
+        """)
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         *   **Fix:** Start with the Word Cloud and Frequency Tables. If those do not look right, the downstream charts will not be right either.
         *   **Fix:** Check whether you scanned the correct text column, or accidentally left old data in additive mode.
 
@@ -2742,16 +3001,55 @@ with st.sidebar:
     use_lemma = st.checkbox("Use Lemmatization", False, help="Merges 'running' -> 'run'. Slower but cleaner.")
     if use_lemma and lemmatizer is None: st.warning("NLTK Lemmatizer not found.")
     
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     proc_conf = ProcessingConfig(
-        min_word_len=st.slider("Min Word Len", 1, 10, 4, help="Filters out very short tokens. Lower this for acronyms and short jargon; raise it if you want to suppress generic small words."),
-        drop_integers=st.checkbox("Drop Integers", True, help="Removes standalone numbers from the analysis. Turn this off if numbers themselves carry meaning in your corpus."),
-        compute_bigrams=st.checkbox("Bigrams", True, help="Tracks two-word phrases such as 'student success' or 'change management'. Required for NPMI, graph strength, and phrase-style maturity signals."),
+        min_word_len=st.slider(
+            "Min Word Len",
+            1,
+            10,
+            4,
+            help=(
+                "Filters out short tokens before analysis. This affects Word Cloud, "
+                "Keyphrases, Graphs, Topic Modeling, and Maturity scoring. Lower this "
+                "for acronyms and short jargon such as LTI, API, SSO, or AI. Raise it "
+                "only when short words are mostly noise."
+            ),
+        ),
+        drop_integers=st.checkbox(
+            "Drop Integers",
+            True,
+            help=(
+                "Removes standalone numbers from the analysis. Turn this off if years, "
+                "course codes, section numbers, ticket IDs, or numeric labels carry meaning."
+            ),
+        ),
+        compute_bigrams=st.checkbox(
+            "Bigrams",
+            True,
+            help=(
+                "Tracks two-word phrases such as 'student success' or 'change management'. "
+                "Required for NPMI, graph strength, and phrase-style maturity signals."
+            ),
+        ),
         use_lemmatization=use_lemma,
         translate_map=build_punct_translation(
-            st.checkbox("Keep Hyphens", help="Useful when hyphenated terms matter, such as 'cross-functional' or 'competency-based'."),
-            st.checkbox("Keep Apostrophes", help="Useful if apostrophes are meaningful in your text, but most corpora are cleaner with them removed."),
+            st.checkbox(
+                "Keep Hyphens",
+                help=(
+                    "Useful when hyphenated terms matter, such as 'cross-functional' "
+                    "or 'competency-based'. Hyphen handling can affect phrase matching."
+                ),
+            ),
+            st.checkbox(
+                "Keep Apostrophes",
+                help=(
+                    "Useful if apostrophes are meaningful in your text, but most corpora "
+                    "are cleaner with them removed."
+                ),
+            ),
         )
     )
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     
     # stopwords
     user_sw = st.text_area(
@@ -2763,12 +3061,19 @@ with st.sidebar:
     clean_conf.phrase_pattern = build_phrase_pattern(phrases)
     stopwords = set(STOPWORDS).union(singles)
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     if st.checkbox(
         "Remove Generic Filler Words and Prepositions",
         True,
         help="Removes common low-value linking words such as 'of', 'to', 'with', and similar filler terms that usually add noise rather than meaning.",
     ):
         stopwords.update(default_prepositions())
+
+    stopwords = protect_maturity_vocabulary(stopwords)
+    st.caption(
+        "Safety note: maturity-model vocabulary is protected from stopword removal "
+        "so key maturity signals are not accidentally filtered out."
+    )
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     proc_conf.stopwords = stopwords
     
