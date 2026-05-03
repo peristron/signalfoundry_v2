@@ -3235,8 +3235,15 @@ with tab_work:
                 selected_model = st.selectbox(
                     "Select Organization Persona:", model_options, index=0
                 )
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
             with c_sel2:
                 st.info(f"ℹ️ {assessor.get_model_desc(selected_model)}")
+                st.caption(
+                    "Maturity scoring uses the current cleaned token stream. "
+                    "Settings such as Min Word Len, stopwords, lemmatization, "
+                    "hyphen handling, and chat/HTML cleanup can change the result."
+                )
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             # 3. Run Assessment
             maturity_result = assessor.assess(
                 combined_counts, scanner.global_bigrams, selected_model
