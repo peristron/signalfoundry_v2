@@ -2553,6 +2553,8 @@ def render_use_cases():
         """)
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 def render_analyst_help():
     with st.expander("🎓 Analyst's Guide & Troubleshooting", expanded=False):
         st.markdown("""
@@ -2609,46 +2611,13 @@ def render_analyst_help():
 
         **Symptom: Trend charts are empty**
         * **Fix:** Re-scan after selecting the correct date column in the file config panel.
-        * **Fix:** Check whether source dates are parseable, such as `2025-01-31`, `01/31/2025`, or `Jan 31 2025`.
+        * **Fix:** Check whether source dates are parseable, such as 2025-01-31, 01/31/2025, or Jan 31 2025.
 
         **Symptom: AI Analyst answer seems too vague**
         * **Fix:** The AI Analyst only sees the statistical sketch, not raw documents.
         * **Fix:** Ask narrower questions about visible outputs, such as "Which maturity domains look weakest?" or "Which graph clusters appear most central?"
         """)
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-        *   **Fix:** Start with the Word Cloud and Frequency Tables. If those do not look right, the downstream charts will not be right either.
-        *   **Fix:** Check whether you scanned the correct text column, or accidentally left old data in additive mode.
-
-        **Symptom: The Network Graph is a "Giant Blob"**
-        *   **Fix:** Increase **'Min Link Frequency'** (Slider) to cut weak ties.
-        *   **Fix:** Increase **'Repulsion'** (Physics) to push nodes apart.
-        
-        **Symptom: The Graph has "Disconnected Islands"**
-        *   **Fix:** Decrease **'Min Link Frequency'** to reveal subtle connections.
-        *   **Fix:** Increase **'Edge Length'** to allow clusters to breathe.
-        
-        **Symptom: Seeing duplicates (e.g., "run" and "running")**
-        *   **Fix:** Enable **'Use Lemmatization'** in the sidebar. This merges word variations into their root form (lemma).
-        
-        **Symptom: Topics look like "gibberish" or random words**
-        *   **Fix:** Check **'Rows per Document'**. 
-            *   For **Chat Logs/Tweets**, keep it low (1-5).
-            *   For **Books/Reports**, increase it (50-100) so the engine understands the "context window."
-        *   **Fix:** Try **NMF** for shorter, cleaner records and **LDA** for longer mixed-content documents.
-        *   **Fix:** Add recurring boilerplate terms to **Stopwords** so the model can focus on actual subject matter.
-
-        **Symptom: High-ranking words are boring (e.g., "page", "copyright")**
-        *   **Fix:** These are "Corpus Artifacts." Add them to the **Stopwords** list in the sidebar to reveal the true signal underneath.
-
-        **Symptom: Trend charts are empty**
-        *   **Fix:** Re-scan the data after selecting the correct date column in the file config panel.
-        *   **Fix:** Check whether the source dates are parseable (e.g. `2025-01-31`, `01/31/2025`, `Jan 31 2025`).
-
-        **Symptom: The maturity result feels too generic**
-        *   **Fix:** Make sure the selected persona matches the document type.
-        *   **Fix:** Feed it more actual meeting notes / transcripts and less boilerplate or exported system text.
-        """)
-
 # visualization helpers
 @st.cache_data(show_spinner="Analyzing term sentiment...")
 def get_sentiments(_analyzer, terms: Tuple[str, ...]) -> Dict[str, float]:
