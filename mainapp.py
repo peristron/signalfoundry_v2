@@ -726,6 +726,7 @@ class MaturityAssessor:
                 }
             }
         },
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
         "06_instructor_efficiency": {
             "name": "Instructor Efficiency",
             "short": "Instructor Efficiency",
@@ -735,12 +736,16 @@ class MaturityAssessor:
                     "color": "#d62728",
                     "terms": {
                         "onboarding", "reactive", "tutorial", "guide",
-                        "slides", "compliance", "upload"
+                        "slides", "compliance", "upload", "training",
+                        "support", "help", "manual", "orientation",
+                        "faculty", "instructor"
                     },
                     "phrases": [
                         "step-by-step guides", "video tutorials",
                         "getting started", "drop-in help",
-                        "technical support", "support dependency"
+                        "technical support", "support dependency",
+                        "faculty training", "instructor support",
+                        "basic training", "how-to guides"
                     ]
                 },
                 2: {
@@ -749,13 +754,16 @@ class MaturityAssessor:
                     "terms": {
                         "proactive", "contextual", "champion", "proficiency",
                         "troubleshoot", "multimedia", "padlet", "jamboard",
-                        "captioned"
+                        "captioned", "coaching", "workshop", "consultation",
+                        "adoption", "readiness", "enablement"
                     },
                     "phrases": [
                         "best practices", "faculty champions",
                         "pedagogical integration", "analytics dashboards",
                         "peer learning", "faculty showcases",
-                        "user groups"
+                        "user groups", "one-on-one coaching",
+                        "faculty development", "contextual support",
+                        "training sessions", "teaching support"
                     ]
                 },
                 3: {
@@ -764,17 +772,22 @@ class MaturityAssessor:
                     "terms": {
                         "collaborative", "strategic", "innovation",
                         "mentorship", "gamified", "flipped", "adaptive",
-                        "personalized", "agency"
+                        "personalized", "agency", "transformation",
+                        "scalable", "empowerment"
                     },
                     "phrases": [
                         "change agents", "custom tool integrations",
                         "data-driven", "beta testing",
                         "ai tools", "edtech innovation",
-                        "data exports"
+                        "data exports", "continuous improvement",
+                        "faculty learning communities",
+                        "instructional design partnership",
+                        "teaching innovation"
                     ]
                 }
             }
         },
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         "07_change_management": {
             "name": "Change Management",
             "short": "Change Mgmt",
@@ -3356,23 +3369,34 @@ with tab_work:
                     if fig_bar:
                         st.pyplot(fig_bar, use_container_width=True)
                     # --- Per-Domain Detail Cards ---
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
                     st.markdown("#### 🔍 Domain Details")
                     domain_results = maturity_result["domain_results"]
                     for domain_key in sorted(domain_results.keys()):
                         dr = domain_results[domain_key]
+
                         if dr["signals"] == 0:
-                            continue
-                        if dr["score"] >= 2.5:
+                            indicator = "⚪"
+                        elif dr["score"] >= 2.5:
                             indicator = "🟢"
                         elif dr["score"] >= 1.5:
                             indicator = "🟠"
                         else:
                             indicator = "🔴"
+
                         with st.expander(
                             f"{indicator} {dr['name']} — "
                             f"{dr['tier_label']} ({dr['score']}/3.0, "
                             f"{dr['signals']} signals)"
                         ):
+                            if dr["signals"] == 0:
+                                st.info(
+                                    "No matching vocabulary from this dataset was mapped to this domain yet. "
+                                    "This usually means either the source material did not discuss this area, "
+                                    "or the current domain vocabulary is too narrow for the way it was discussed."
+                                )
+                                continue
+
                             dist = dr["distribution"]
                             dc1, dc2, dc3 = st.columns(3)
                             dc1.metric("Foundational", f"{dist.get(1, 0):.0%}")
@@ -3391,6 +3415,7 @@ with tab_work:
                                     st.caption(
                                         f"**{tier_names[tier_num]}:** {driver_str}"
                                     )
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                     # ============================================
                     # PHASE 10: DOWNLOAD ASSESSMENT (inline here)
                     # ============================================
