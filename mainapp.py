@@ -480,8 +480,8 @@ class MaturityAssessor:
                     }
                 }
             },
-            "🎓 Brightspace Maturity Model (12-Domain)": {
-    "desc": "Official 12-domain Brightspace Admin Maturity Model. Evaluates from Foundational to Leading Edge across Platform Admin, Curriculum, Student Engagement, Analytics, Assessment, Instructor Efficiency, Change Management, Knowledge Management, Accessibility, User Support, Innovation, and Collaboration.",
+            "🎓 TAM Maturity Model (12-Domain)": {
+    "desc": "Official 12-domain TAM Admin Maturity Model. Evaluates from Foundational to Leading Edge across Platform Admin, Curriculum, Student Engagement, Analytics, Assessment, Instructor Efficiency, Change Management, Knowledge Management, Accessibility, User Support, Innovation, and Collaboration.",
     "type": "domain_based",
     "domains": {
         "01_platform_admin": {
@@ -2405,7 +2405,7 @@ def render_maturity_guide():
         *   **L1 (Enforcement):** Violations, bans, restrictions, sanctions.
         *   **L5 (Systemic):** Sustainable, resilient, holistic, ecosystem-level language.
 
-        #### 4. 🎓 Brightspace Maturity Model — 12-Domain (3-Tier)
+        #### 4. 🎓 TAM Maturity Model — 12-Domain (3-Tier)
         *Best for: meeting transcripts, coaching notes, strategic reviews, TAM/client discussions.*
 
         This persona evaluates the client across **12 separate domains**, each scored on 3 tiers:
@@ -2438,7 +2438,7 @@ def render_maturity_guide():
         *   Weighted average across the detected maturity-level signals.
         *   Score range: **1.0 to 5.0**
 
-        **For the 12-domain Brightspace persona**
+        **For the 12-domain TAM persona**
         *   Each domain is scored independently using tiers 1-3.
         *   The composite score is the average of all domains with at least one signal.
         *   Score range: **1.0 to 3.0**
@@ -2485,7 +2485,7 @@ def render_maturity_guide():
 
         > **Signal vs. reality:** The maturity engine measures language, not actual implementation. Treat it as a conversation starter and evidence aid, not a final audit.
 
-        > **Persona mismatch:** If you scan a generic business strategy memo with the Brightspace model, the score may look plausible but be contextually wrong.
+        > **Persona mismatch:** If you scan a generic business strategy memo with the TAM model, the score may look plausible but be contextually wrong.
 
         > **Data quality matters:** Transcripts, coaching notes, and strategy discussions usually work better than exported system logs or boilerplate-heavy files.
         """)
@@ -2532,8 +2532,8 @@ def render_use_cases():
         ### 🎓 Specialized: TAM & Client Maturity Assessment
 
         #### 6. The "Client Maturity Snapshot" (12-Domain Scan)
-        *   **Goal:** Quickly gauge where a client stands across all 12 Brightspace admin maturity domains.
-        *   **Action:** Upload 3–5 meeting transcripts or coaching session recordings (VTT/PDF) from a single client. Select the **🎓 Brightspace Maturity Model** persona.
+        *   **Goal:** Quickly gauge where a client stands across all 12 TAM admin maturity domains.
+        *   **Action:** Upload 3–5 meeting transcripts or coaching session recordings (VTT/PDF) from a single client. Select the **🎓 TAM Maturity Model** persona.
         *   **Signal:**
             *   The **Radar Chart** instantly shows which domains the client discusses at a strategic level vs. which are still basic.
             *   The **Breakdown Chart** reveals the distribution — is the client *mostly* Foundational with a few Advanced pockets, or broadly Advanced with Leading Edge potential?
