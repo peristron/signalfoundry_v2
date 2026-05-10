@@ -1431,6 +1431,126 @@ class MaturityAssessor:
         return fig
 
 
+
+TAM_DOMAIN_HELP = {
+    "01_platform_admin": {
+        "plain": "How the Brightspace environment is configured, secured, integrated, monitored, and maintained.",
+        "covers": "Roles and permissions, SSO, SIS/LTI/API integrations, course provisioning, configuration standards, monitoring, automation, lifecycle practices, and governance of the technical environment.",
+        "leading": "A leading-edge environment uses automated provisioning, clear governance, integrated systems, proactive monitoring, scalable admin patterns, and documented lifecycle practices."
+    },
+    "02_curriculum": {
+        "plain": "How courses and learning experiences are designed, structured, delivered, reviewed, and improved.",
+        "covers": "Course templates, learning objectives, instructional design, content structure, release conditions, multimedia, accessibility within course design, competency alignment, and program-level curriculum improvement.",
+        "leading": "Leading-edge curriculum work is programmatic, evidence-informed, accessible, competency-aware, and continuously improved through cross-functional collaboration."
+    },
+    "03_student_engagement": {
+        "plain": "How the platform supports learner participation, persistence, retention, and success.",
+        "covers": "Announcements, discussions, checklists, intelligent agents, engagement dashboards, early alerts, student-success workflows, advisor touchpoints, retention signals, and interventions for students at risk.",
+        "leading": "Leading-edge engagement uses predictive signals, scalable interventions, real-time insight, and coordinated student-success practices."
+    },
+    "04_data_analytics": {
+        "plain": "How data is collected, interpreted, shared, and used to improve teaching, learning, and operations.",
+        "covers": "Reports, dashboards, Data Hub, learning analytics, KPIs, trend analysis, institutional research, data governance, longitudinal analysis, and visualization tools such as Power BI or Tableau.",
+        "leading": "Leading-edge analytics connects platform data to institutional decision-making, predictive models, governed data practices, and cross-functional improvement cycles."
+    },
+    "05_assessment": {
+        "plain": "How assessment activities are designed, delivered, evaluated, and improved.",
+        "covers": "Quizzes, assignments, rubrics, gradebook practices, formative assessment, peer review, question banks, academic integrity, feedback workflows, item analysis, adaptive assessment, and assessment innovation.",
+        "leading": "Leading-edge assessment uses high-quality feedback loops, adaptive or authentic assessment design, analytics-driven evaluation, and scalable assessment practices."
+    },
+    "06_instructor_efficiency": {
+        "plain": "How effectively instructors can use Brightspace tools without unnecessary friction or manual effort.",
+        "covers": "Instructor onboarding, training, support dependency, templates, reusable workflows, troubleshooting, faculty champions, instructional design partnership, automation, and time-saving practices.",
+        "leading": "Leading-edge instructor efficiency is supported by scalable enablement, coaching, reusable models, automation, faculty learning communities, and innovation partnerships."
+    },
+    "07_change_management": {
+        "plain": "How the organization plans, communicates, supports, and sustains platform-related change.",
+        "covers": "Rollouts, system updates, training plans, sandbox environments, feedback loops, champion networks, adoption planning, change management plans, pilot programs, and digital transformation work.",
+        "leading": "Leading-edge change management is proactive, strategic, cross-functional, evidence-informed, and tied to continuous improvement rather than one-time rollout support."
+    },
+    "08_knowledge_management": {
+        "plain": "How institutional knowledge, documentation, templates, resources, and reusable assets are managed.",
+        "covers": "Knowledge bases, FAQs, help sites, how-to guides, shared content libraries, learning object repositories, metadata, tagging, lifecycle management, versioning, archiving, and stewardship.",
+        "leading": "Leading-edge knowledge management uses governed content lifecycles, discoverable resources, reusable standards, metadata practices, and communities of practice."
+    },
+    "09_accessibility": {
+        "plain": "How accessibility, inclusion, compliance, and universal design are built into platform and course practices.",
+        "covers": "WCAG, ADA/AODA-style compliance, alternative text, screen reader compatibility, captioning, templates, remediation, audits, assistive technology, inclusive pedagogy, procurement, and accessibility champions.",
+        "leading": "Leading-edge accessibility is proactive, embedded in design and procurement, supported by champions, and continuously audited and improved."
+    },
+    "10_user_support": {
+        "plain": "How learners, instructors, and staff receive help, training, onboarding, and ongoing support.",
+        "covers": "Quick-start guides, login help, tutorials, FAQs, workshops, tiered support, contextualized training, coaching, consultations, learning communities, and role-specific enablement.",
+        "leading": "Leading-edge user support combines self-service, role-based training, coaching, communities of practice, analytics-informed support, and continuous enablement."
+    },
+    "11_innovation": {
+        "plain": "How the organization experiments with, evaluates, and scales emerging teaching and learning technologies.",
+        "covers": "Sandboxes, demos, showcases, pilot programs, adaptive learning, simulations, AI tools, immersive media, innovation labs, faculty-led research, digital pedagogy, and emerging technology governance.",
+        "leading": "Leading-edge innovation is tied to institutional goals, evaluated for impact and equity, and scaled through pilots, research, communities, and change agents."
+    },
+    "12_collaboration": {
+        "plain": "How technology, academic, support, and leadership teams communicate and work together around Brightspace.",
+        "covers": "Support requests, service coordination, two-way communication, pedagogical partnership, faculty development, cross-functional meetings, governance committees, shared vision, and strategic initiatives.",
+        "leading": "Leading-edge collaboration is strategic, proactive, cross-functional, governance-supported, and aligned to institutional priorities and digital transformation goals."
+    },
+}
+
+
+def get_tam_domain_help(domain_key: str) -> Dict[str, str]:
+    """Returns plain-language help text for a TAM / Brightspace maturity domain."""
+    return TAM_DOMAIN_HELP.get(domain_key, {
+        "plain": "No description is available for this domain yet.",
+        "covers": "No coverage details are available yet.",
+        "leading": "No leading-edge example is available yet.",
+    })
+
+
+def render_tam_domain_glossary(domain_results: Dict[str, Dict]):
+    """Renders a compact glossary for the 12 maturity domains."""
+    if not domain_results:
+        return
+
+    rows = []
+    for domain_key in sorted(domain_results.keys()):
+        dr = domain_results[domain_key]
+        help_text = get_tam_domain_help(domain_key)
+        rows.append({
+            "Domain": dr.get("short", dr.get("name", domain_key)),
+            "Plain-language meaning": help_text["plain"],
+            "What it covers": help_text["covers"],
+            "Leading-edge signals": help_text["leading"],
+        })
+
+    with st.expander("📘 What do these 12 domains mean?", expanded=False):
+        st.caption(
+            "Use this glossary to interpret the radar and domain cards. "
+            "These explanations do not change the scoring logic; they explain what each domain is intended to represent."
+        )
+        st.dataframe(
+            pd.DataFrame(rows),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Domain": st.column_config.TextColumn(
+                    "Domain",
+                    help="The short label used in the radar and breakdown charts."
+                ),
+                "Plain-language meaning": st.column_config.TextColumn(
+                    "Plain-language meaning",
+                    help="A quick explanation of the domain."
+                ),
+                "What it covers": st.column_config.TextColumn(
+                    "What it covers",
+                    help="Examples of practices, workflows, or concepts included in this domain."
+                ),
+                "Leading-edge signals": st.column_config.TextColumn(
+                    "Leading-edge signals",
+                    help="What stronger maturity can look like in this area."
+                ),
+            },
+        )
+
+
 # session state init
 if 'sketch' not in st.session_state: st.session_state['sketch'] = StreamScanner()
 if 'total_cost' not in st.session_state: st.session_state['total_cost'] = 0.0
@@ -3547,6 +3667,9 @@ with tab_work:
                         "🔴 Foundational (<1.5) | 🟠 Advanced (1.5–2.5) | "
                         "🟢 Leading Edge (>2.5)"
                     )
+
+                    render_tam_domain_glossary(maturity_result["domain_results"])
+
                     # --- Stacked Bar Breakdown ---
                     st.markdown("#### 📊 Tier Distribution by Domain")
                     fig_bar = assessor.render_domain_breakdown_chart(maturity_result)
@@ -3573,6 +3696,11 @@ with tab_work:
                             f"{dr['tier_label']} ({dr['score']}/3.0, "
                             f"{dr['signals']} signals)"
                         ):
+                            domain_help = get_tam_domain_help(domain_key)
+                            st.markdown(f"**What this domain means:** {domain_help['plain']}")
+                            st.caption(f"**What it covers:** {domain_help['covers']}")
+                            st.caption(f"**Leading-edge signals:** {domain_help['leading']}")
+
                             if dr["signals"] == 0:
                                 st.info(
                                     "No matching vocabulary from this dataset was mapped to this domain yet. "
