@@ -2315,6 +2315,21 @@ def render_workflow_guide():
 
         ---
 
+        ### 🧩 Best Workflow for Maturity Scans
+
+        If your goal is maturity assessment rather than general exploration, use this sequence:
+        1. Upload meeting transcripts, coaching notes, workshop notes, or strategy discussions.
+        2. Keep **Bigrams** turned on. Many maturity signals are phrase-based.
+        3. Keep **Remove Generic Filler Words and Prepositions** on unless you have a special reason not to.
+        4. Lower **Min Word Len** if the corpus uses many short but meaningful terms such as API, LMS, SIS, LTI, AI, or TAM.
+        5. Start with the **Word Cloud** and **Frequency Tables** first. If those look wrong, maturity scoring will also look wrong.
+        6. Then move to the **Maturity** tab and inspect both the overall score and the domain cards.
+        7. Treat **No Data** as "no mapped language detected in this corpus", not as proof that the capability is absent.
+
+        **Important:** generic filler-word removal is maturity-safe in this app. Known maturity vocabulary is protected from automatic stopword cleanup so key domain signals are less likely to disappear accidentally.
+
+        ---
+
         ### 🧭 Recommended Reading Order
 
         If you are new to the app, read the outputs in this order:
@@ -2658,6 +2673,7 @@ def render_use_cases():
             *   The **Radar Chart** instantly shows which domains the client discusses at a strategic level vs. which are still basic.
             *   The **Breakdown Chart** reveals the distribution — is the client *mostly* Foundational with a few Advanced pockets, or broadly Advanced with Leading Edge potential?
         *   **Action:** Use the domain cards to identify the 2–3 domains with the lowest scores and build your coaching plan around them.
+        *   **Processing note:** Keep **Bigrams** on, and if acronym-heavy terminology is common, lower **Min Word Len** before scanning.
 
         #### 7. Client Progress Over Time (Longitudinal Tracking)
         *   **Goal:** Measure whether a client's maturity is improving after coaching.
@@ -3037,14 +3053,13 @@ with st.sidebar:
     if st.checkbox(
         "Remove Generic Filler Words and Prepositions",
         True,
-        help="Removes common low-value linking words such as 'of', 'to', 'with', and similar filler terms that usually add noise rather than meaning.",
+        help="Removes common low-value linking words such as 'of', 'to', 'with', and similar filler terms that usually add noise rather than meaning. Maturity-model vocabulary is protected separately.",
     ):
         stopwords.update(default_prepositions())
 
     stopwords = protect_maturity_vocabulary(stopwords)
     st.caption(
-        "Safety note: maturity-model vocabulary is protected from stopword removal "
-        "so key maturity signals are not accidentally filtered out."
+        "Safety note: maturity-model vocabulary is protected from generic stopword removal, so terms that drive maturity scoring are less likely to disappear accidentally."
     )
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     proc_conf.stopwords = stopwords
