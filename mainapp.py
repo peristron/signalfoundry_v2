@@ -1617,7 +1617,7 @@ def build_punct_translation(keep_hyphens: bool, keep_apostrophes: bool) -> dict:
     punct = string.punctuation
     
     # 2. Add Unicode "Smart" quotes & dashes
-    punct += "“”‘’–—" 
+    punct += "“”‘’–—…" 
 
     if keep_hyphens: 
         for char in "-–—": punct = punct.replace(char, "")
@@ -1781,14 +1781,41 @@ def fetch_url_content(url: str) -> Optional[str]:
 
 # all readers yield (text_content, date_str, category_str)
 
+def detect_text_encoding(file_bytes: bytes, encoding_choice: str = "auto") -> str:
+    """
+    Detect common transcript/text encodings without adding dependencies.
+
+    Several meeting transcript exports are UTF-16 even when the file name ends
+    in .txt. Reading those as UTF-8 leaves embedded NUL characters that render
+    as square boxes in the word cloud and pollute downstream counts.
+    """
+    if encoding_choice == "latin-1":
+        return "latin-1"
+    if file_bytes.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return "utf-16"
+    if file_bytes.startswith(b"\xef\xbb\xbf"):
+        return "utf-8-sig"
+    return "utf-8"
+
+def decode_text_sample(file_bytes: bytes, encoding_choice: str = "auto", max_bytes: int = 8192) -> str:
+    enc = detect_text_encoding(file_bytes, encoding_choice)
+    return file_bytes[:max_bytes].decode(enc, errors="replace")
+
+def is_probably_vtt(file_bytes: bytes, encoding_choice: str = "auto") -> bool:
+    try:
+        sample = decode_text_sample(file_bytes, encoding_choice)
+    except Exception:
+        return False
+    sample = sample.lstrip("\ufeff\r\n\t ")
+    return sample.startswith("WEBVTT") or "-->" in sample[:1000]
+
 def read_rows_raw_lines(file_bytes: bytes, encoding_choice: str = "auto") -> Iterable[Tuple[str, None, None]]:
     def _iter(enc):
         bio = io.BytesIO(file_bytes)
         with io.TextIOWrapper(bio, encoding=enc, errors="replace", newline=None) as wrapper:
             for line in wrapper: yield (line.rstrip("\r\n"), None, None)
     try:
-        if encoding_choice == "latin-1": yield from _iter("latin-1")
-        else: yield from _iter("utf-8")
+        yield from _iter(detect_text_encoding(file_bytes, encoding_choice))
     except UnicodeDecodeError:
         yield ("", None, None)
 
@@ -1799,7 +1826,7 @@ def read_rows_vtt(file_bytes: bytes, encoding_choice: str = "auto") -> Iterable[
         with io.TextIOWrapper(bio, encoding=enc, errors="replace", newline=None) as wrapper:
             for line in wrapper: yield line.rstrip("\r\n")
     
-    iterator = _iter_lines("utf-8") if encoding_choice != "latin-1" else _iter_lines("latin-1")
+    iterator = _iter_lines(detect_text_encoding(file_bytes, encoding_choice))
     
     for line in iterator:
         line = line.strip()
@@ -2020,6 +2047,14 @@ def clean_date_str(raw: Any) -> Optional[str]:
 
 def apply_text_cleaning(text: str, config: CleaningConfig) -> str:
     if not isinstance(text, str): return ""
+
+    # Strip non-printing artifacts from badly decoded transcript/text files.
+    # This prevents control glyphs from becoming word-cloud tokens.
+    text = text.replace("\ufeff", " ").replace("\ufffd", " ")
+    text = "".join(
+        ch if (ch >= " " or ch in "\n\r\t") else " "
+        for ch in text
+    )
     
     # standard cleaning FIRST (to convert tags/artifacts to spaces)
     # ensures artifacts like <br> become spaces so the de-hyphenator can see them
@@ -3230,7 +3265,7 @@ with tab_work:
                     elif fname.endswith(".pptx"):
                         batch_iter = read_rows_pptx(f_bytes)
 
-                    elif fname.endswith(".vtt"):
+                    elif fname.endswith(".vtt") or is_probably_vtt(f_bytes):
                         batch_iter = read_rows_vtt(f_bytes)
 
                     elif fname.endswith(".json"):
@@ -3260,7 +3295,7 @@ with tab_work:
                 is_csv = lower.endswith(".csv")
                 is_xlsx = lower.endswith((".xlsx", ".xlsm"))
                 is_json = lower.endswith(".json")
-                is_vtt = lower.endswith(".vtt")
+                is_vtt = lower.endswith(".vtt") or is_probably_vtt(file_bytes)
                 is_pdf = lower.endswith(".pdf")
                 is_pptx = lower.endswith(".pptx")
                 
