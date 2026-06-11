@@ -1724,6 +1724,52 @@ def speaker_is_excluded(
     return False
 
 
+def collect_speaker_labels_from_text(
+    text: str,
+    max_lines: int = 20000
+) -> Counter:
+    """
+    Counts explicit transcript speaker labels without attempting identity detection.
+
+    This only looks for labels already present before a colon, such as
+    "Speaker 18 (Rikki):" or "Participant A:".
+    """
+    counts = Counter()
+    if not isinstance(text, str):
+        return counts
+
+    for idx, line in enumerate(text.splitlines()):
+        if idx >= max_lines:
+            break
+        line = line.strip()
+        if not line or line == "WEBVTT" or "-->" in line or line.isdigit():
+            continue
+        speaker, _utterance = extract_speaker_label(line)
+        if speaker:
+            counts[speaker.strip()] += 1
+    return counts
+
+
+def collect_speaker_labels_from_file(
+    file_bytes: bytes,
+    filename: str = "",
+    max_lines: int = 20000
+) -> Counter:
+    """
+    Safely previews transcript-style speaker labels from uploaded text/VTT files.
+    Does not inspect PDFs, Office files, CSVs, or JSON to avoid surprising work.
+    """
+    lower = (filename or "").lower()
+    if not (lower.endswith((".txt", ".vtt")) or is_probably_vtt(file_bytes)):
+        return Counter()
+
+    try:
+        text = file_bytes.decode(detect_text_encoding(file_bytes), errors="replace")
+    except Exception:
+        return Counter()
+    return collect_speaker_labels_from_text(text, max_lines=max_lines)
+
+
 def collect_maturity_vocabulary() -> Set[str]:
     """
     Collects maturity-model vocabulary so maturity-critical words are not
@@ -3155,6 +3201,47 @@ with st.sidebar:
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     st.markdown("**Transcript Speaker Exclusion**")
+    detected_speaker_counts = Counter()
+    if uploaded_files:
+        for uploaded_file in uploaded_files:
+            try:
+                detected_speaker_counts.update(
+                    collect_speaker_labels_from_file(
+                        uploaded_file.getvalue(),
+                        uploaded_file.name,
+                    )
+                )
+            except Exception:
+                pass
+    if manual_input:
+        detected_speaker_counts.update(
+            collect_speaker_labels_from_text(manual_input)
+        )
+
+    selected_detected_speakers: List[str] = []
+    if detected_speaker_counts:
+        speaker_options = [
+            speaker
+            for speaker, _count in detected_speaker_counts.most_common()
+        ]
+        with st.expander("Detected Speaker Labels", expanded=False):
+            st.caption(
+                "These are labels found before a colon in transcript-style text. "
+                "Select labels to exclude their full utterances from the next scan."
+            )
+            selected_detected_speakers = st.multiselect(
+                "Select detected speakers to exclude",
+                speaker_options,
+                format_func=lambda speaker: (
+                    f"{speaker} ({detected_speaker_counts[speaker]:,} lines)"
+                ),
+            )
+    else:
+        st.caption(
+            "No speaker labels detected yet. Upload or paste transcript-style text, "
+            "or type speaker labels manually below."
+        )
+
     excluded_speaker_input = st.text_area(
         "Exclude Speakers (comma-separated)",
         "",
@@ -3168,11 +3255,16 @@ with st.sidebar:
         "Use partial speaker matching",
         False,
         help=(
-            "When enabled, an entry like 'Omar' also matches labels such as "
-            "'Bob Smith' or 'Speaker 4 (Omar)'. Leave off for safer exact matching."
+            "When enabled, an entry like 'Bob' also matches labels such as "
+            "'Bob Smith' or 'Speaker 4 (Bob)'. Leave off for safer exact matching."
         ),
     )
     excluded_speakers = parse_speaker_exclusions(excluded_speaker_input)
+    excluded_speakers.update(
+        normalize_speaker_name(speaker)
+        for speaker in selected_detected_speakers
+        if normalize_speaker_name(speaker)
+    )
     proc_conf.excluded_speakers = excluded_speakers
     proc_conf.partial_speaker_match = partial_speaker_match
     if excluded_speakers:
