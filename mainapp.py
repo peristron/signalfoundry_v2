@@ -1686,8 +1686,8 @@ def parse_speaker_exclusions(raw: str) -> Set[str]:
 def extract_speaker_label(text: str) -> Tuple[Optional[str], str]:
     """
     Extracts transcript-style speaker labels such as:
-    - Speaker 18 (Blaze): text
-    - Omar Akhtar: text
+    - Speaker 18 (Rikki): text
+    - Bob Smith: text
 
     Returns (speaker, utterance). If no safe label is found, speaker is None.
     """
@@ -3161,7 +3161,7 @@ with st.sidebar:
         help=(
             "Optional. For transcripts with speaker labels, enter speakers whose "
             "entire utterances should be excluded before analysis. Exact matching "
-            "is used by default, for example: Omar Akhtar, Speaker 18 (Blaze)."
+            "is used by default, for example: Bob Smith, Speaker 18 (Rikki)."
         ),
     )
     partial_speaker_match = st.checkbox(
@@ -3169,7 +3169,7 @@ with st.sidebar:
         False,
         help=(
             "When enabled, an entry like 'Omar' also matches labels such as "
-            "'Omar Akhtar' or 'Speaker 4 (Omar)'. Leave off for safer exact matching."
+            "'Bob Smith' or 'Speaker 4 (Omar)'. Leave off for safer exact matching."
         ),
     )
     excluded_speakers = parse_speaker_exclusions(excluded_speaker_input)
