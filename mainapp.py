@@ -1561,11 +1561,13 @@ if 'authenticated' not in st.session_state: st.session_state['authenticated'] = 
 if 'auth_error' not in st.session_state: st.session_state['auth_error'] = False
 if 'ai_response' not in st.session_state: st.session_state['ai_response'] = ""
 if 'last_sketch_hash' not in st.session_state: st.session_state['last_sketch_hash'] = None
+if 'scan_summary' not in st.session_state: st.session_state['scan_summary'] = []
 
 def reset_sketch():
     st.session_state['sketch'] = StreamScanner()
     st.session_state['ai_response'] = ""
     st.session_state['last_sketch_hash'] = None
+    st.session_state['scan_summary'] = []
     gc.collect()
 
 def perform_login():
@@ -1832,6 +1834,105 @@ def protect_maturity_vocabulary(stopwords: Set[str]) -> Set[str]:
 def estimate_row_count_from_bytes(file_bytes: bytes) -> int:
     if not file_bytes: return 0
     return file_bytes.count(b'\n') + 1
+
+def describe_file_size(file_bytes: bytes) -> str:
+    size_mb = len(file_bytes) / (1024 * 1024) if file_bytes else 0
+    if size_mb >= 1:
+        return f"{size_mb:.2f} MB"
+    return f"{len(file_bytes) / 1024:.1f} KB"
+
+def infer_input_kind(filename: str, file_bytes: bytes) -> str:
+    lower = filename.lower()
+    if lower.endswith(".csv"): return "CSV"
+    if lower.endswith((".xlsx", ".xlsm")): return "Excel"
+    if lower.endswith(".pdf"): return "PDF"
+    if lower.endswith(".pptx"): return "PowerPoint"
+    if lower.endswith(".json"): return "JSON"
+    if lower.endswith(".vtt") or is_probably_vtt(file_bytes): return "Transcript/VTT"
+    if lower.endswith(".txt"): return "Text"
+    return "Raw text"
+
+def count_excluded_speaker_rows(
+    speaker_counts: Counter,
+    excluded_speakers: Set[str],
+    partial_speaker_match: bool
+) -> int:
+    if not speaker_counts or not excluded_speakers:
+        return 0
+    return sum(
+        count
+        for speaker, count in speaker_counts.items()
+        if speaker_is_excluded(speaker, excluded_speakers, partial_speaker_match)
+    )
+
+def build_pre_scan_preview_rows(inputs: List[Any], proc_conf: ProcessingConfig) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    for item in inputs:
+        try:
+            file_bytes = item.getvalue()
+            filename = getattr(item, "name", "input")
+            lower = filename.lower()
+            kind = infer_input_kind(filename, file_bytes)
+            is_text_like = kind in {"Text", "Transcript/VTT", "CSV", "JSON", "Raw text"}
+            encoding = detect_text_encoding(file_bytes, "auto") if is_text_like else ""
+            approx_rows = estimate_row_count_from_bytes(file_bytes)
+            speaker_counts = collect_speaker_labels_from_file(file_bytes, filename)
+            speaker_total = sum(speaker_counts.values())
+            excluded_rows = count_excluded_speaker_rows(
+                speaker_counts,
+                proc_conf.excluded_speakers,
+                proc_conf.partial_speaker_match,
+            )
+
+            notes = []
+            if len(file_bytes) > MAX_FILE_SIZE_MB * 1024 * 1024:
+                notes.append("Over file-size limit")
+            if kind == "Transcript/VTT" and not lower.endswith(".vtt"):
+                notes.append("VTT-like content detected")
+            if lower.endswith(".csv"):
+                notes.append("Batch scan uses first detected column")
+            if kind == "Transcript/VTT" and speaker_total == 0:
+                notes.append("No speaker labels detected")
+            if excluded_rows:
+                notes.append(f"{excluded_rows:,} rows match speaker exclusion")
+
+            rows.append({
+                "Input": filename,
+                "Type": kind,
+                "Size": describe_file_size(file_bytes),
+                "Encoding": encoding,
+                "Approx Rows": approx_rows,
+                "Speaker Labels": len(speaker_counts),
+                "Speaker-Labeled Rows": speaker_total,
+                "Excluded Speaker Rows": excluded_rows,
+                "Notes": "; ".join(notes) if notes else "",
+            })
+        except Exception as e:
+            rows.append({
+                "Input": getattr(item, "name", "input"),
+                "Type": "Unknown",
+                "Size": "",
+                "Encoding": "",
+                "Approx Rows": "",
+                "Speaker Labels": "",
+                "Speaker-Labeled Rows": "",
+                "Excluded Speaker Rows": "",
+                "Notes": f"Preview unavailable: {e}",
+            })
+    return rows
+
+def render_scan_summary(summary_rows: List[Dict[str, Any]]):
+    if not summary_rows:
+        return
+    with st.expander("✅ Latest Scan Summary", expanded=True):
+        summary_df = pd.DataFrame(summary_rows)
+        st.dataframe(summary_df, use_container_width=True)
+        st.download_button(
+            "📥 Download scan summary CSV",
+            dataframe_to_csv_bytes(summary_df),
+            "scan_summary.csv",
+            "text/csv",
+        )
 
 def make_unique_header(raw_names: List[Optional[str]]) -> List[str]:
     seen: Dict[str, int] = {}
@@ -2226,6 +2327,8 @@ def process_chunk_iter(
     batch_accum = Counter()
     batch_rows = 0
     row_count = 0
+    rows_with_tokens = 0
+    speaker_excluded_rows = 0
     
     # pre-caching lemmatizer methods for speed loop
     lemmatize = lemmatizer.lemmatize if _lemma else None
@@ -2236,6 +2339,7 @@ def process_chunk_iter(
         if _excluded_speakers:
             speaker, _utterance = extract_speaker_label(raw_text)
             if speaker_is_excluded(speaker, _excluded_speakers, _partial_speaker_match):
+                speaker_excluded_rows += 1
                 continue
         
         # entities (Before lowercase)
@@ -2268,6 +2372,7 @@ def process_chunk_iter(
             filtered_tokens_line.append(t)
         
         if filtered_tokens_line:
+            rows_with_tokens += 1
             # Stats Update
             line_counts = Counter(filtered_tokens_line)
             local_global_counts.update(filtered_tokens_line)
@@ -2297,6 +2402,14 @@ def process_chunk_iter(
     scanner.update_global_stats(local_global_counts, local_global_bigrams, row_count)
     if progress_cb: progress_cb(row_count)
     gc.collect()
+    return {
+        "Rows Read": row_count,
+        "Rows With Tokens": rows_with_tokens,
+        "Speaker-Excluded Rows": speaker_excluded_rows,
+        "Tokens Added": sum(local_global_counts.values()),
+        "Unique Terms Added": len(local_global_counts),
+        "Bigrams Added": sum(local_global_bigrams.values()),
+    }
 
 def perform_refinery_job(file_obj, chunk_size, clean_conf: CleaningConfig):
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -3595,6 +3708,18 @@ with tab_work:
 
     if all_inputs:
         st.subheader("🚀 Scanning Phase")
+        render_scan_summary(st.session_state.get('scan_summary', []))
+
+        preview_rows = build_pre_scan_preview_rows(all_inputs, proc_conf)
+        with st.expander("🔎 Pre-Scan Data Preview", expanded=True):
+            preview_df = pd.DataFrame(preview_rows)
+            st.dataframe(preview_df, use_container_width=True)
+            st.download_button(
+                "📥 Download pre-scan preview CSV",
+                dataframe_to_csv_bytes(preview_df),
+                "pre_scan_preview.csv",
+                "text/csv",
+            )
         
         # --batch scanner
         # only shows this button if we have more than 1 file/url
@@ -3625,6 +3750,7 @@ with tab_work:
                 # 2. Setup Progress
                 prog_bar = st.progress(0)
                 status_box = st.empty()
+                scan_summary_rows = []
                 
                 # 3. Iterate through all files
                 for i, item in enumerate(all_inputs):
@@ -3676,11 +3802,28 @@ with tab_work:
                         batch_iter = read_rows_raw_lines(f_bytes)
                         
                     # Process
-                    process_chunk_iter(batch_iter, clean_conf, proc_conf, st.session_state['sketch'], lemmatizer)
+                    process_summary = process_chunk_iter(batch_iter, clean_conf, proc_conf, st.session_state['sketch'], lemmatizer)
+                    preview_row = preview_rows[i] if i < len(preview_rows) else {}
+                    preview_excluded = preview_row.get("Excluded Speaker Rows", 0) or 0
+                    scan_summary_rows.append({
+                        "Input": item.name,
+                        "Type": preview_row.get("Type", ""),
+                        "Rows Read": process_summary.get("Rows Read", 0),
+                        "Rows With Tokens": process_summary.get("Rows With Tokens", 0),
+                        "Speaker-Excluded Rows": max(
+                            process_summary.get("Speaker-Excluded Rows", 0),
+                            int(preview_excluded) if isinstance(preview_excluded, (int, np.integer)) else 0,
+                        ),
+                        "Tokens Added": process_summary.get("Tokens Added", 0),
+                        "Unique Terms Added": process_summary.get("Unique Terms Added", 0),
+                        "Bigrams Added": process_summary.get("Bigrams Added", 0),
+                        "Notes": preview_row.get("Notes", ""),
+                    })
                     
                     # Update Progress
                     prog_bar.progress((i + 1) / len(all_inputs))
                 
+                st.session_state['scan_summary'] = scan_summary_rows
                 status_box.success(f"✅ Batch Complete! Processed {len(all_inputs)} files.")
                 st.rerun()
         # -------------------------
@@ -3768,7 +3911,23 @@ with tab_work:
                         rows_iter = read_rows_raw_lines(file_bytes)
                     
                     # run
-                    process_chunk_iter(rows_iter, clean_conf, proc_conf, st.session_state['sketch'], lemmatizer, lambda n: status.text(f"Rows: {n:,}"))
+                    process_summary = process_chunk_iter(rows_iter, clean_conf, proc_conf, st.session_state['sketch'], lemmatizer, lambda n: status.text(f"Rows: {n:,}"))
+                    preview_row = preview_rows[idx] if idx < len(preview_rows) else {}
+                    preview_excluded = preview_row.get("Excluded Speaker Rows", 0) or 0
+                    st.session_state['scan_summary'] = [{
+                        "Input": fname,
+                        "Type": preview_row.get("Type", ""),
+                        "Rows Read": process_summary.get("Rows Read", 0),
+                        "Rows With Tokens": process_summary.get("Rows With Tokens", 0),
+                        "Speaker-Excluded Rows": max(
+                            process_summary.get("Speaker-Excluded Rows", 0),
+                            int(preview_excluded) if isinstance(preview_excluded, (int, np.integer)) else 0,
+                        ),
+                        "Tokens Added": process_summary.get("Tokens Added", 0),
+                        "Unique Terms Added": process_summary.get("Unique Terms Added", 0),
+                        "Bigrams Added": process_summary.get("Bigrams Added", 0),
+                        "Notes": preview_row.get("Notes", ""),
+                    }]
                     bar.progress(100)
                     status.success("Done!")
                     if not clear_on_scan: st.rerun()
