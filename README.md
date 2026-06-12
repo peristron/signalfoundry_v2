@@ -1,6 +1,6 @@
 # Signal Foundry
 
-**Signal Foundry** is a Streamlit-based unstructured text analytics app for turning messy text sources into fast, inspectable signals: term frequencies, keyphrases, sticky concepts, entity-like names, topic clusters, network graphs, sentiment estimates, and optional AI-generated interpretation.
+**Signal Foundry** is a Streamlit-based unstructured text analytics app for turning messy text sources into fast, inspectable signals: term frequencies, keyphrases, sticky concepts, entity-like names, topic clusters, network graphs, sentiment estimates, maturity indicators, pre-scan quality checks, downloadable analysis tables, and optional AI-generated interpretation.
 
 The app is designed for two operating modes:
 
@@ -8,6 +8,8 @@ The app is designed for two operating modes:
 2. **Offline harvester mode** — preprocess large or sensitive datasets locally with `harvester.py`, then upload the resulting privacy-preserving JSON sketch into the app.
 
 Signal Foundry is especially useful for rapid analysis of transcripts, research corpora, support exports, meeting logs, articles, reports, PDFs, slide decks, and spreadsheet-based text datasets.
+
+This README describes the **heavier** Signal Foundry app branch: the general-purpose text analytics app plus the expanded TAM / client maturity assessment module. A lighter branch exists for general-purpose analysis without the larger TAM-focused maturity workflow.
 
 ---
 
@@ -27,6 +29,13 @@ Signal Foundry can process:
 - Web pages via URL paste
 - Manual raw text pasted into the sidebar
 
+Transcript-specific safeguards include:
+
+- UTF-8, UTF-8 BOM, and UTF-16 transcript/text decoding
+- Detection of `.txt` files that contain WebVTT-style transcript content
+- Speaker-label detection for transcript-style rows such as `Speaker 18 (Name): text`
+- Optional exclusion of selected speakers' full utterances before analysis
+
 ### Core analytics
 
 The app produces several layers of analysis from the input corpus:
@@ -42,7 +51,27 @@ The app produces several layers of analysis from the input corpus:
 - **Topic discovery** using topic modeling when enough document-level text is available
 - **Bayesian sentiment inference** based on positive and negative term evidence
 - **Maturity assessment** based on configurable linguistic markers
+- **TAM / client maturity assessment** with expanded domain-level scoring and interpretation
 - **Hybrid signature / QR artifact** for document-grounding and chain-of-custody style workflows
+- **Pre-scan data preview** showing detected type, encoding, approximate rows, speaker-label counts, and possible warnings
+- **Latest scan summary** showing rows read, rows with tokens, speaker-excluded rows, tokens added, and bigrams added
+- **CSV exports** for preview, scan summary, frequencies, bigrams, TF-IDF, NPMI, entities, trends, and graph nodes
+
+### Heavier-branch maturity module
+
+The heavier app branch includes a larger TAM-oriented maturity workflow intended for client conversations, coaching notes, strategic reviews, and similar operational corpora.
+
+Depending on the deployed version, this may include:
+
+- 12-domain TAM maturity scoring
+- Domain-level radar and breakdown views
+- Maturity signal density metrics
+- Domain glossary/help text
+- Exportable maturity assessment JSON
+- Snapshot comparison for repeated assessments over time
+- Optional AI Analyst context enriched with maturity scores
+
+Treat maturity output as an interpretive evidence aid, not as an automated audit or final judgment.
 
 ### Optional AI Analyst
 
@@ -59,12 +88,13 @@ A typical deployment contains:
 ```text
 .
 ├── mainapp.py              # Streamlit application entry point
-├── harvester.py            # Offline large-file preprocessor
-├── text_processor.py       # Shared cleaning/tokenization utilities
+├── harvester.py            # Optional offline large-file preprocessor
 ├── requirements.txt        # Python dependencies
 └── .streamlit/
     └── secrets.toml        # Local or deployed Streamlit secrets
 ```
+
+Some deployments may also include helper modules such as `text_processor.py`. If your app is deployed as a single Streamlit file, keep the code paths in this README aligned with that file name.
 
 Depending on your deployment, `.streamlit/secrets.toml` may be present locally only and should usually not be committed to GitHub.
 
@@ -198,6 +228,43 @@ The app includes controls for:
 - Graph thresholds
 - Topic and sentiment views, where supported by available dependencies and input data
 
+### Transcript speaker controls
+
+For transcripts that separate text by speaker, the app can:
+
+- Detect speaker labels already present in uploaded or pasted transcript text
+- Preview detected speaker labels and line counts before scanning
+- Exclude selected speakers' full utterances before analysis
+- Match speakers exactly by default
+- Optionally use partial matching, such as excluding `Bob` from `Bob Smith` or `Speaker 4 (Bob)`
+
+Speaker detection is label-based only. It does not attempt to identify real people; it only surfaces labels already present in the transcript.
+
+### Pre-scan preview and scan summary
+
+Before scanning, the app may show a **Pre-Scan Data Preview** with:
+
+- Input name
+- Detected input type
+- File size
+- Text encoding where relevant
+- Approximate row count
+- Detected speaker-label counts
+- Estimated speaker-excluded rows
+- Notes such as VTT-like content detection or batch CSV assumptions
+
+After scanning, the app may show a **Latest Scan Summary** with:
+
+- Rows read
+- Rows with retained tokens
+- Speaker-excluded rows
+- Tokens added
+- Unique terms added
+- Bigrams added
+- Notes inherited from the preview
+
+Where present, both tables can be downloaded as CSV.
+
 ---
 
 ## Streamlit secrets
@@ -214,12 +281,12 @@ Example structure:
 
 ```toml
 # Optional app access control
-APP_PASSWORD = "replace-me"
+auth_password = "replace-me"
 
 # Optional AI Analyst configuration
-OPENAI_API_KEY = "sk-..."
-OPENAI_BASE_URL = "https://api.openai.com/v1"
-OPENAI_MODEL = "gpt-4o-mini"
+openai_api_key = "sk-..."
+xai_api_key = "xai-..."
+deepseek_api_key = "deepseek-..."
 ```
 
 The exact secret names should match the names expected in `mainapp.py`.
@@ -234,9 +301,12 @@ Do not commit real secrets to GitHub.
 
 1. Launch the app with `streamlit run mainapp.py`.
 2. Upload files in the sidebar, or paste URLs/text.
-3. Configure text, date, and category columns when prompted.
-4. Run the scan.
-5. Review the dashboard outputs: word cloud, frequency tables, keyphrases, sticky concepts, graph, topics, sentiment, and maturity assessment.
+3. Review the **Pre-Scan Data Preview**, if present.
+4. If the input is a transcript, optionally review detected speaker labels and choose speakers to exclude.
+5. Configure text, date, and category columns when prompted.
+6. Run the scan.
+7. Review the **Latest Scan Summary**, if present.
+8. Review the dashboard outputs: word cloud, frequency tables, keyphrases, sticky concepts, graph, topics, sentiment, and maturity assessment.
 
 ### Path B: Column-controlled spreadsheet scan
 
@@ -249,7 +319,33 @@ Use this mode when:
 - You need a category column for segmentation
 - The file has multiple candidate text fields
 
-### Path C: Offline harvester workflow
+Batch scan mode may use a safe default for CSV files, such as the first detected column. For multi-column CSVs, scan the file individually and choose the intended text columns.
+
+### Path C: Transcript scan with speaker exclusion
+
+For meeting transcripts, coaching notes, interviews, workshops, and other speaker-separated files:
+
+1. Upload `.vtt` or `.txt` transcript files.
+2. Review **Detected Speaker Labels** under **Transcript Speaker Exclusion**.
+3. Select labels to exclude, or type labels manually in the exclusion box.
+4. Leave partial matching off unless you intentionally want broad matching.
+5. Confirm the pre-scan preview shows expected speaker-excluded rows.
+6. Run the scan.
+7. Confirm the scan summary shows excluded rows and retained token counts.
+
+### Path D: TAM / client maturity workflow
+
+For TAM maturity review, client coaching notes, strategic conversations, or operational health checks:
+
+1. Upload relevant client transcripts, meeting notes, or strategy artifacts.
+2. Keep bigrams enabled so phrase-based maturity signals are available.
+3. Exclude facilitator or internal-only speakers when they would distort the client signal.
+4. Start with word cloud, frequency tables, keyphrases, and graph outputs to verify the scan makes sense.
+5. Open the Maturity tab and select the appropriate persona or TAM maturity model.
+6. Review domain-level scores, signal density, and linguistic drivers.
+7. Export maturity results or snapshots where supported.
+
+### Path E: Offline harvester workflow
 
 For very large or sensitive datasets, use `harvester.py` outside the Streamlit app.
 
@@ -306,6 +402,8 @@ python harvester.py --input data.csv --col text --output sketch.json
 
 Use this for a quick sense of what dominates the corpus. If the cloud is full of obvious noise, add those terms to the stopword list and rescan.
 
+The word cloud and frequency tables use the same cleaned token stream as most downstream analytics. If these look wrong, downstream outputs such as topics, graph relationships, sentiment, and maturity scoring should be treated cautiously until cleaning settings are corrected.
+
 ### TF-IDF keyphrases
 
 Use this to find terms that are distinctive to the corpus or selected slice. These are often more useful than raw frequency when looking for domain-specific vocabulary.
@@ -333,6 +431,29 @@ Use this as a lightweight directional estimate based on positive and negative te
 ### Maturity assessment
 
 Use this to estimate organizational or operational maturity based on configured linguistic markers. Treat it as an interpretive model, not as a final score without human review.
+
+In the heavier branch, the maturity workflow may include a TAM / client maturity module with domain-level scoring and exportable assessment artifacts. This module measures language signals in the uploaded corpus. It should support human review and coaching conversations, not replace them.
+
+### Digital humanities case-study framing
+
+The in-app Ovid / Project Gutenberg example is intended to demonstrate textual forensics rather than character mapping. It focuses on edition layers, translation artifacts, recurring conceptual language, and the difference between source-text signal and publication or translator metadata.
+
+### Downloadable outputs
+
+Most tabular outputs can be downloaded as CSV, including:
+
+- Pre-scan preview
+- Latest scan summary
+- Word frequency
+- Bigram frequency
+- TF-IDF keyphrases
+- NPMI sticky concepts
+- Entities
+- Trend tables
+- Top graph nodes
+- Maturity exports or snapshots where supported
+
+CSV exports are useful for audit notes, external reporting, spreadsheet review, and comparing repeated scans.
 
 ---
 
@@ -371,6 +492,11 @@ For private deployments, consider:
 - Use Streamlit secrets or your deployment platform’s secret manager.
 - If the app is exposed publicly, consider adding authentication and limiting accepted input types.
 - The AI Analyst should be understood as optional. Review the app’s current prompt construction before using it with sensitive corpora.
+- Streamlit Community Cloud is a public cloud environment. Avoid uploading sensitive raw transcripts unless that is acceptable for your data-handling requirements.
+- If transcripts contain names or other sensitive speaker labels, anonymize them before upload when needed.
+- Speaker-label detection is not identity detection. It only reads labels already present in the transcript, such as `Speaker 2`, `Participant A`, or an anonymized name.
+- The pre-scan preview and scan summary are intended to improve transparency, but they should not be treated as a data-loss-prevention system.
+- Maturity scores are interpretive language signals. They should be reviewed alongside human context, client history, and source-document quality.
 
 ---
 
@@ -381,6 +507,12 @@ Before deploying changes, test the following:
 - Upload and scan a CSV file.
 - Upload and scan an Excel file with a selected text column.
 - Upload and scan a VTT transcript with speaker labels.
+- Upload and scan a `.txt` file that contains WebVTT-style transcript content.
+- Upload and scan a UTF-16 transcript and confirm no square/rectangle artifacts appear in word clouds or keyphrase text.
+- Test detected speaker labels, exact speaker exclusion, and partial speaker exclusion.
+- Confirm the pre-scan preview appears before scanning, if enabled in this branch.
+- Confirm the latest scan summary appears after scanning, if enabled in this branch.
+- Download at least one CSV output and confirm it opens correctly.
 - Upload and scan a PDF.
 - Upload and scan a PowerPoint file.
 - Paste a public URL and confirm it is processed.
@@ -388,6 +520,8 @@ Before deploying changes, test the following:
 - Run `harvester.py` on a sample CSV and upload the resulting JSON sketch.
 - Test additive mode by scanning multiple batches without clearing previous data.
 - Test reset behavior.
+- Test the TAM maturity module with a known sample corpus and confirm domain-level outputs render.
+- Export maturity results or snapshots where supported.
 - Test the app with and without an AI API key.
 - Confirm the app starts cleanly after a fresh dependency install.
 
@@ -402,6 +536,26 @@ Check the dependency status panel in the sidebar. Some features depend on option
 ### Excel results look wrong
 
 Confirm that the correct text column was selected. For multi-column spreadsheets, avoid relying on the first column unless it is definitely the intended text field.
+
+### CSV batch results look wrong
+
+Batch scan mode may use the first detected CSV column as a safe default. For multi-column CSVs, scan the file individually and select the intended text column or columns.
+
+### Transcript word clouds show square or rectangle artifacts
+
+This usually indicates an encoding issue or control characters in the source text. Current versions detect common UTF-16 transcript exports and remove non-printing control characters before tokenization. If artifacts persist, confirm the source file is a text-based transcript and not a binary or malformed export.
+
+### Speaker exclusion did not remove the expected text
+
+Check whether the transcript labels match exactly. Exact matching is the default. For broader matching, enable partial speaker matching, but review the pre-scan preview first because partial matching can exclude many more rows.
+
+### Too many rows are being excluded
+
+Partial speaker matching may be too broad. Turn it off and use exact speaker labels from the detected speaker list.
+
+### Maturity results look sparse or misleading
+
+Confirm that the selected maturity persona matches the corpus. A generic report, a technical transcript, and a client coaching session may produce very different maturity signal density. Start by verifying the word cloud and frequency tables before interpreting maturity scores.
 
 ### The graph is unreadable
 
@@ -429,7 +583,7 @@ Check the exact spelling of the column passed to `--col`. For Excel files, verif
 
 Recommended near-term improvements:
 
-- Keep shared text cleaning in `text_processor.py` and import it consistently from both the app and harvester.
+- If the app is split into helper modules later, keep shared text cleaning in one place and import it consistently from both the app and harvester.
 - Add explicit Excel sheet selection to `harvester.py`.
 - Add tests for CSV, Excel, VTT, PDF, PPTX, URL, and offline sketch paths.
 - Add a small sample dataset for smoke testing.
@@ -447,9 +601,11 @@ Recommended near-term improvements:
 After any significant change:
 
 ```bash
-python -m py_compile mainapp.py harvester.py text_processor.py
+python -m py_compile mainapp.py harvester.py
 streamlit run mainapp.py
 ```
+
+If your deployment includes additional helper modules, include them in the compile check as well.
 
 Then run one direct app scan and one offline harvester scan.
 
