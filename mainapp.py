@@ -4062,29 +4062,70 @@ with tab_work:
             st.markdown("#### Signal Quadrant: Frequency vs. Distinctiveness")
             quadrant_df = build_signal_quadrant_df(scanner, combined_counts, top_n=150)
             if not quadrant_df.empty:
+                st.caption(
+                    "The chart is intentionally unlabeled by default because dense term labels can overlap. "
+                    "Use the table below for full term names, or turn on selected labels for a few high-signal points."
+                )
+                label_points = st.checkbox(
+                    "Label selected high-signal points",
+                    value=False,
+                    key="quadrant_label_points",
+                    help="Adds labels for only a small number of high-distinctiveness points to avoid visual clutter."
+                )
+                label_limit = 8
+                if label_points:
+                    label_limit = st.slider(
+                        "Number of point labels",
+                        min_value=3,
+                        max_value=15,
+                        value=8,
+                        key="quadrant_label_limit"
+                    )
                 q_colors = {
                     "Core signal": "#2ca02c",
                     "Common backdrop": "#1f77b4",
                     "Niche signal": "#ff7f0e",
                     "Low evidence": "#7f7f7f",
                 }
-                fig_q, ax_q = plt.subplots(figsize=(8, 4.5))
+                fig_q, ax_q = plt.subplots(figsize=(8.5, 4.8))
                 for q_name, q_group in quadrant_df.groupby("Quadrant"):
                     ax_q.scatter(
                         q_group["Frequency"],
                         q_group["Distinctiveness"],
                         label=q_name,
-                        alpha=0.72,
-                        s=42,
+                        alpha=0.68,
+                        s=38,
                         color=q_colors.get(q_name, "#7f7f7f"),
+                        edgecolors="white",
+                        linewidths=0.4,
                     )
-                for _, row in quadrant_df.head(12).iterrows():
-                    ax_q.annotate(row["Term"], (row["Frequency"], row["Distinctiveness"]), fontsize=8, alpha=0.8)
+                freq_mid = quadrant_df["Frequency"].median()
+                distinct_mid = quadrant_df["Distinctiveness"].median()
+                ax_q.axvline(freq_mid, color="#666666", linewidth=0.8, alpha=0.35, linestyle="--")
+                ax_q.axhline(distinct_mid, color="#666666", linewidth=0.8, alpha=0.35, linestyle="--")
+                if label_points:
+                    label_df = quadrant_df.sort_values(
+                        ["Distinctiveness", "Frequency"],
+                        ascending=[False, False]
+                    ).head(label_limit)
+                    for _, row in label_df.iterrows():
+                        ax_q.annotate(
+                            row["Term"],
+                            (row["Frequency"], row["Distinctiveness"]),
+                            xytext=(5, 5),
+                            textcoords="offset points",
+                            fontsize=8,
+                            alpha=0.9,
+                            bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.68),
+                        )
                 ax_q.set_xlabel("Frequency")
                 ax_q.set_ylabel("Distinctiveness")
-                ax_q.set_title("Frequent terms are not always the most revealing terms")
-                ax_q.legend(loc="best", fontsize=8)
+                ax_q.set_title("Frequent terms are not always the most revealing terms", fontsize=12, pad=10)
+                ax_q.legend(loc="best", fontsize=8, frameon=True)
                 ax_q.grid(alpha=0.2)
+                ax_q.spines["top"].set_visible(False)
+                ax_q.spines["right"].set_visible(False)
+                fig_q.tight_layout()
                 st.pyplot(fig_q, use_container_width=True)
                 plt.close(fig_q)
 
