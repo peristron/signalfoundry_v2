@@ -21,6 +21,11 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import streamlit as st
+
+try:
+    import altair as alt
+except Exception:
+    alt = None
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from io import BytesIO
@@ -1561,13 +1566,11 @@ if 'authenticated' not in st.session_state: st.session_state['authenticated'] = 
 if 'auth_error' not in st.session_state: st.session_state['auth_error'] = False
 if 'ai_response' not in st.session_state: st.session_state['ai_response'] = ""
 if 'last_sketch_hash' not in st.session_state: st.session_state['last_sketch_hash'] = None
-if 'scan_summary' not in st.session_state: st.session_state['scan_summary'] = []
 
 def reset_sketch():
     st.session_state['sketch'] = StreamScanner()
     st.session_state['ai_response'] = ""
     st.session_state['last_sketch_hash'] = None
-    st.session_state['scan_summary'] = []
     gc.collect()
 
 def perform_login():
@@ -1834,105 +1837,6 @@ def protect_maturity_vocabulary(stopwords: Set[str]) -> Set[str]:
 def estimate_row_count_from_bytes(file_bytes: bytes) -> int:
     if not file_bytes: return 0
     return file_bytes.count(b'\n') + 1
-
-def describe_file_size(file_bytes: bytes) -> str:
-    size_mb = len(file_bytes) / (1024 * 1024) if file_bytes else 0
-    if size_mb >= 1:
-        return f"{size_mb:.2f} MB"
-    return f"{len(file_bytes) / 1024:.1f} KB"
-
-def infer_input_kind(filename: str, file_bytes: bytes) -> str:
-    lower = filename.lower()
-    if lower.endswith(".csv"): return "CSV"
-    if lower.endswith((".xlsx", ".xlsm")): return "Excel"
-    if lower.endswith(".pdf"): return "PDF"
-    if lower.endswith(".pptx"): return "PowerPoint"
-    if lower.endswith(".json"): return "JSON"
-    if lower.endswith(".vtt") or is_probably_vtt(file_bytes): return "Transcript/VTT"
-    if lower.endswith(".txt"): return "Text"
-    return "Raw text"
-
-def count_excluded_speaker_rows(
-    speaker_counts: Counter,
-    excluded_speakers: Set[str],
-    partial_speaker_match: bool
-) -> int:
-    if not speaker_counts or not excluded_speakers:
-        return 0
-    return sum(
-        count
-        for speaker, count in speaker_counts.items()
-        if speaker_is_excluded(speaker, excluded_speakers, partial_speaker_match)
-    )
-
-def build_pre_scan_preview_rows(inputs: List[Any], proc_conf: ProcessingConfig) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
-    for item in inputs:
-        try:
-            file_bytes = item.getvalue()
-            filename = getattr(item, "name", "input")
-            lower = filename.lower()
-            kind = infer_input_kind(filename, file_bytes)
-            is_text_like = kind in {"Text", "Transcript/VTT", "CSV", "JSON", "Raw text"}
-            encoding = detect_text_encoding(file_bytes, "auto") if is_text_like else ""
-            approx_rows = estimate_row_count_from_bytes(file_bytes)
-            speaker_counts = collect_speaker_labels_from_file(file_bytes, filename)
-            speaker_total = sum(speaker_counts.values())
-            excluded_rows = count_excluded_speaker_rows(
-                speaker_counts,
-                proc_conf.excluded_speakers,
-                proc_conf.partial_speaker_match,
-            )
-
-            notes = []
-            if len(file_bytes) > MAX_FILE_SIZE_MB * 1024 * 1024:
-                notes.append("Over file-size limit")
-            if kind == "Transcript/VTT" and not lower.endswith(".vtt"):
-                notes.append("VTT-like content detected")
-            if lower.endswith(".csv"):
-                notes.append("Batch scan uses first detected column")
-            if kind == "Transcript/VTT" and speaker_total == 0:
-                notes.append("No speaker labels detected")
-            if excluded_rows:
-                notes.append(f"{excluded_rows:,} rows match speaker exclusion")
-
-            rows.append({
-                "Input": filename,
-                "Type": kind,
-                "Size": describe_file_size(file_bytes),
-                "Encoding": encoding,
-                "Approx Rows": approx_rows,
-                "Speaker Labels": len(speaker_counts),
-                "Speaker-Labeled Rows": speaker_total,
-                "Excluded Speaker Rows": excluded_rows,
-                "Notes": "; ".join(notes) if notes else "",
-            })
-        except Exception as e:
-            rows.append({
-                "Input": getattr(item, "name", "input"),
-                "Type": "Unknown",
-                "Size": "",
-                "Encoding": "",
-                "Approx Rows": "",
-                "Speaker Labels": "",
-                "Speaker-Labeled Rows": "",
-                "Excluded Speaker Rows": "",
-                "Notes": f"Preview unavailable: {e}",
-            })
-    return rows
-
-def render_scan_summary(summary_rows: List[Dict[str, Any]]):
-    if not summary_rows:
-        return
-    with st.expander("✅ Latest Scan Summary", expanded=True):
-        summary_df = pd.DataFrame(summary_rows)
-        st.dataframe(summary_df, use_container_width=True)
-        st.download_button(
-            "📥 Download scan summary CSV",
-            dataframe_to_csv_bytes(summary_df),
-            "scan_summary.csv",
-            "text/csv",
-        )
 
 def make_unique_header(raw_names: List[Optional[str]]) -> List[str]:
     seen: Dict[str, int] = {}
@@ -2327,8 +2231,6 @@ def process_chunk_iter(
     batch_accum = Counter()
     batch_rows = 0
     row_count = 0
-    rows_with_tokens = 0
-    speaker_excluded_rows = 0
     
     # pre-caching lemmatizer methods for speed loop
     lemmatize = lemmatizer.lemmatize if _lemma else None
@@ -2339,7 +2241,6 @@ def process_chunk_iter(
         if _excluded_speakers:
             speaker, _utterance = extract_speaker_label(raw_text)
             if speaker_is_excluded(speaker, _excluded_speakers, _partial_speaker_match):
-                speaker_excluded_rows += 1
                 continue
         
         # entities (Before lowercase)
@@ -2372,7 +2273,6 @@ def process_chunk_iter(
             filtered_tokens_line.append(t)
         
         if filtered_tokens_line:
-            rows_with_tokens += 1
             # Stats Update
             line_counts = Counter(filtered_tokens_line)
             local_global_counts.update(filtered_tokens_line)
@@ -2402,14 +2302,6 @@ def process_chunk_iter(
     scanner.update_global_stats(local_global_counts, local_global_bigrams, row_count)
     if progress_cb: progress_cb(row_count)
     gc.collect()
-    return {
-        "Rows Read": row_count,
-        "Rows With Tokens": rows_with_tokens,
-        "Speaker-Excluded Rows": speaker_excluded_rows,
-        "Tokens Added": sum(local_global_counts.values()),
-        "Unique Terms Added": len(local_global_counts),
-        "Bigrams Added": sum(local_global_bigrams.values()),
-    }
 
 def perform_refinery_job(file_obj, chunk_size, clean_conf: CleaningConfig):
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -3708,18 +3600,6 @@ with tab_work:
 
     if all_inputs:
         st.subheader("🚀 Scanning Phase")
-        render_scan_summary(st.session_state.get('scan_summary', []))
-
-        preview_rows = build_pre_scan_preview_rows(all_inputs, proc_conf)
-        with st.expander("🔎 Pre-Scan Data Preview", expanded=True):
-            preview_df = pd.DataFrame(preview_rows)
-            st.dataframe(preview_df, use_container_width=True)
-            st.download_button(
-                "📥 Download pre-scan preview CSV",
-                dataframe_to_csv_bytes(preview_df),
-                "pre_scan_preview.csv",
-                "text/csv",
-            )
         
         # --batch scanner
         # only shows this button if we have more than 1 file/url
@@ -3750,7 +3630,6 @@ with tab_work:
                 # 2. Setup Progress
                 prog_bar = st.progress(0)
                 status_box = st.empty()
-                scan_summary_rows = []
                 
                 # 3. Iterate through all files
                 for i, item in enumerate(all_inputs):
@@ -3802,28 +3681,11 @@ with tab_work:
                         batch_iter = read_rows_raw_lines(f_bytes)
                         
                     # Process
-                    process_summary = process_chunk_iter(batch_iter, clean_conf, proc_conf, st.session_state['sketch'], lemmatizer)
-                    preview_row = preview_rows[i] if i < len(preview_rows) else {}
-                    preview_excluded = preview_row.get("Excluded Speaker Rows", 0) or 0
-                    scan_summary_rows.append({
-                        "Input": item.name,
-                        "Type": preview_row.get("Type", ""),
-                        "Rows Read": process_summary.get("Rows Read", 0),
-                        "Rows With Tokens": process_summary.get("Rows With Tokens", 0),
-                        "Speaker-Excluded Rows": max(
-                            process_summary.get("Speaker-Excluded Rows", 0),
-                            int(preview_excluded) if isinstance(preview_excluded, (int, np.integer)) else 0,
-                        ),
-                        "Tokens Added": process_summary.get("Tokens Added", 0),
-                        "Unique Terms Added": process_summary.get("Unique Terms Added", 0),
-                        "Bigrams Added": process_summary.get("Bigrams Added", 0),
-                        "Notes": preview_row.get("Notes", ""),
-                    })
+                    process_chunk_iter(batch_iter, clean_conf, proc_conf, st.session_state['sketch'], lemmatizer)
                     
                     # Update Progress
                     prog_bar.progress((i + 1) / len(all_inputs))
                 
-                st.session_state['scan_summary'] = scan_summary_rows
                 status_box.success(f"✅ Batch Complete! Processed {len(all_inputs)} files.")
                 st.rerun()
         # -------------------------
@@ -3911,23 +3773,7 @@ with tab_work:
                         rows_iter = read_rows_raw_lines(file_bytes)
                     
                     # run
-                    process_summary = process_chunk_iter(rows_iter, clean_conf, proc_conf, st.session_state['sketch'], lemmatizer, lambda n: status.text(f"Rows: {n:,}"))
-                    preview_row = preview_rows[idx] if idx < len(preview_rows) else {}
-                    preview_excluded = preview_row.get("Excluded Speaker Rows", 0) or 0
-                    st.session_state['scan_summary'] = [{
-                        "Input": fname,
-                        "Type": preview_row.get("Type", ""),
-                        "Rows Read": process_summary.get("Rows Read", 0),
-                        "Rows With Tokens": process_summary.get("Rows With Tokens", 0),
-                        "Speaker-Excluded Rows": max(
-                            process_summary.get("Speaker-Excluded Rows", 0),
-                            int(preview_excluded) if isinstance(preview_excluded, (int, np.integer)) else 0,
-                        ),
-                        "Tokens Added": process_summary.get("Tokens Added", 0),
-                        "Unique Terms Added": process_summary.get("Unique Terms Added", 0),
-                        "Bigrams Added": process_summary.get("Bigrams Added", 0),
-                        "Notes": preview_row.get("Notes", ""),
-                    }]
+                    process_chunk_iter(rows_iter, clean_conf, proc_conf, st.session_state['sketch'], lemmatizer, lambda n: status.text(f"Rows: {n:,}"))
                     bar.progress(100)
                     status.success("Done!")
                     if not clear_on_scan: st.rerun()
@@ -4060,74 +3906,90 @@ with tab_work:
                 st.info("Not enough phrase or TF-IDF signal yet to build theme evidence cards.")
 
             st.markdown("#### Signal Quadrant: Frequency vs. Distinctiveness")
+            st.caption(
+                "High-frequency terms show the backdrop; high-distinctiveness terms reveal stronger signal. "
+                "Hover over points for term names. The table below keeps the full ranked detail without cluttering the chart."
+            )
             quadrant_df = build_signal_quadrant_df(scanner, combined_counts, top_n=150)
             if not quadrant_df.empty:
-                st.caption(
-                    "The chart is intentionally unlabeled by default because dense term labels can overlap. "
-                    "Use the table below for full term names, or turn on selected labels for a few high-signal points."
-                )
-                label_points = st.checkbox(
-                    "Label selected high-signal points",
-                    value=False,
-                    key="quadrant_label_points",
-                    help="Adds labels for only a small number of high-distinctiveness points to avoid visual clutter."
-                )
-                label_limit = 8
-                if label_points:
-                    label_limit = st.slider(
-                        "Number of point labels",
-                        min_value=3,
-                        max_value=15,
-                        value=8,
-                        key="quadrant_label_limit"
-                    )
+                q_order = ["Core signal", "Niche signal", "Common backdrop", "Low evidence"]
                 q_colors = {
                     "Core signal": "#2ca02c",
                     "Common backdrop": "#1f77b4",
                     "Niche signal": "#ff7f0e",
                     "Low evidence": "#7f7f7f",
                 }
-                fig_q, ax_q = plt.subplots(figsize=(8.5, 4.8))
-                for q_name, q_group in quadrant_df.groupby("Quadrant"):
-                    ax_q.scatter(
-                        q_group["Frequency"],
-                        q_group["Distinctiveness"],
-                        label=q_name,
-                        alpha=0.68,
-                        s=38,
-                        color=q_colors.get(q_name, "#7f7f7f"),
-                        edgecolors="white",
-                        linewidths=0.4,
+                chart_df = quadrant_df.head(120).copy()
+                chart_df["Evidence Score"] = chart_df["Frequency"] * chart_df["Distinctiveness"]
+
+                x_split = float(chart_df["Frequency"].median())
+                y_split = float(chart_df["Distinctiveness"].median())
+
+                if alt is not None:
+                    base = alt.Chart(chart_df).encode(
+                        x=alt.X("Frequency:Q", title="Frequency"),
+                        y=alt.Y("Distinctiveness:Q", title="Distinctiveness"),
                     )
-                freq_mid = quadrant_df["Frequency"].median()
-                distinct_mid = quadrant_df["Distinctiveness"].median()
-                ax_q.axvline(freq_mid, color="#666666", linewidth=0.8, alpha=0.35, linestyle="--")
-                ax_q.axhline(distinct_mid, color="#666666", linewidth=0.8, alpha=0.35, linestyle="--")
-                if label_points:
-                    label_df = quadrant_df.sort_values(
-                        ["Distinctiveness", "Frequency"],
-                        ascending=[False, False]
-                    ).head(label_limit)
-                    for _, row in label_df.iterrows():
-                        ax_q.annotate(
-                            row["Term"],
-                            (row["Frequency"], row["Distinctiveness"]),
-                            xytext=(5, 5),
-                            textcoords="offset points",
-                            fontsize=8,
-                            alpha=0.9,
-                            bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.68),
+                    points = base.mark_circle(size=78, opacity=0.72).encode(
+                        color=alt.Color(
+                            "Quadrant:N",
+                            sort=q_order,
+                            scale=alt.Scale(
+                                domain=q_order,
+                                range=[q_colors.get(q, "#7f7f7f") for q in q_order],
+                            ),
+                            legend=alt.Legend(title="Quadrant", orient="bottom-right"),
+                        ),
+                        tooltip=[
+                            alt.Tooltip("Term:N", title="Term"),
+                            alt.Tooltip("Frequency:Q", title="Frequency"),
+                            alt.Tooltip("Distinctiveness:Q", title="Distinctiveness", format=".2f"),
+                            alt.Tooltip("Evidence Score:Q", title="Evidence Score", format=".1f"),
+                            alt.Tooltip("Quadrant:N", title="Quadrant"),
+                        ],
+                    )
+                    v_rule = alt.Chart(pd.DataFrame({"x": [x_split]})).mark_rule(strokeDash=[4, 4], opacity=0.45).encode(x="x:Q")
+                    h_rule = alt.Chart(pd.DataFrame({"y": [y_split]})).mark_rule(strokeDash=[4, 4], opacity=0.45).encode(y="y:Q")
+                    chart = (points + v_rule + h_rule).properties(
+                        height=430,
+                        title="Signal Quadrant",
+                    ).interactive()
+                    st.altair_chart(chart, use_container_width=True)
+                else:
+                    # Fallback for minimal environments where Altair is unavailable.
+                    fig_q, ax_q = plt.subplots(figsize=(8, 4.5))
+                    for q_name, q_group in chart_df.groupby("Quadrant"):
+                        ax_q.scatter(
+                            q_group["Frequency"],
+                            q_group["Distinctiveness"],
+                            label=q_name,
+                            alpha=0.72,
+                            s=42,
+                            color=q_colors.get(q_name, "#7f7f7f"),
                         )
-                ax_q.set_xlabel("Frequency")
-                ax_q.set_ylabel("Distinctiveness")
-                ax_q.set_title("Frequent terms are not always the most revealing terms", fontsize=12, pad=10)
-                ax_q.legend(loc="best", fontsize=8, frameon=True)
-                ax_q.grid(alpha=0.2)
-                ax_q.spines["top"].set_visible(False)
-                ax_q.spines["right"].set_visible(False)
-                fig_q.tight_layout()
-                st.pyplot(fig_q, use_container_width=True)
-                plt.close(fig_q)
+                    ax_q.axvline(x_split, linestyle="--", alpha=0.35)
+                    ax_q.axhline(y_split, linestyle="--", alpha=0.35)
+                    ax_q.set_xlabel("Frequency")
+                    ax_q.set_ylabel("Distinctiveness")
+                    ax_q.set_title("Signal Quadrant")
+                    ax_q.legend(loc="best", fontsize=8)
+                    ax_q.grid(alpha=0.2)
+                    st.pyplot(fig_q, use_container_width=True)
+                    plt.close(fig_q)
+
+                top_signal_df = chart_df.sort_values("Evidence Score", ascending=False).head(15)
+                with st.expander("Top high-signal points shown in the quadrant", expanded=False):
+                    st.dataframe(
+                        top_signal_df[["Term", "Frequency", "Distinctiveness", "Evidence Score", "Quadrant"]],
+                        use_container_width=True,
+                        column_config={
+                            "Term": st.column_config.TextColumn("Term"),
+                            "Frequency": st.column_config.NumberColumn("Frequency"),
+                            "Distinctiveness": st.column_config.NumberColumn("Distinctiveness", format="%.2f"),
+                            "Evidence Score": st.column_config.NumberColumn("Evidence Score", format="%.1f"),
+                            "Quadrant": st.column_config.TextColumn("Quadrant"),
+                        },
+                    )
 
                 st.dataframe(quadrant_df.head(80), use_container_width=True)
                 st.download_button(
