@@ -2339,6 +2339,9 @@ def perform_refinery_job(file_obj, chunk_size, clean_conf: CleaningConfig):
 # 📊 UI, analytics renderers
 # ==========================================
 
+def dataframe_to_csv_bytes(df: pd.DataFrame) -> bytes:
+    return df.to_csv(index=False).encode("utf-8")
+
 def calculate_text_stats(counts: Counter, total_rows: int) -> Dict:
     total_tokens = sum(counts.values())
     unique_tokens = len(counts)
@@ -2438,6 +2441,181 @@ def perform_bayesian_sentiment_analysis(counts: Counter, sentiments: Dict[str, f
         "x_axis": x, "pdf_y": y
     }
 
+def build_theme_evidence_cards(scanner: StreamScanner, counts: Counter, top_n: int = 6) -> pd.DataFrame:
+    total_words = max(sum(counts.values()), 1)
+    npmi_df = calculate_npmi(scanner.global_bigrams, counts, total_words)
+    tfidf_df = calculate_tfidf(scanner, 100)
+    tfidf_scores = {
+        row["Term"]: row["Keyphrase Score"]
+        for _, row in tfidf_df.iterrows()
+    } if not tfidf_df.empty else {}
+
+    rows = []
+    used_terms = set()
+
+    if not npmi_df.empty:
+        for _, row in npmi_df.head(top_n).iterrows():
+            phrase = str(row["Bigram"])
+            terms = phrase.split()
+            used_terms.update(terms)
+            related = Counter()
+            for bg, freq in scanner.global_bigrams.items():
+                if any(term in bg for term in terms):
+                    for term in bg:
+                        if term not in terms and term in counts:
+                            related[term] += freq
+            rows.append({
+                "Theme Evidence": phrase,
+                "Evidence Type": "Sticky phrase",
+                "Support": int(row["Count"]),
+                "Distinctiveness": float(row["NPMI"]),
+                "Related Terms": ", ".join([t for t, _ in related.most_common(5)]),
+                "Read As": "Terms that appear together more often than chance; useful as a candidate theme or concept.",
+            })
+
+    for term, score in sorted(tfidf_scores.items(), key=lambda item: item[1], reverse=True):
+        if len(rows) >= top_n:
+            break
+        if term in used_terms or term not in counts:
+            continue
+        related = Counter()
+        for bg, freq in scanner.global_bigrams.items():
+            if term in bg:
+                for neighbor in bg:
+                    if neighbor != term and neighbor in counts:
+                        related[neighbor] += freq
+        rows.append({
+            "Theme Evidence": term,
+            "Evidence Type": "Distinctive term",
+            "Support": counts[term],
+            "Distinctiveness": round(score, 3),
+            "Related Terms": ", ".join([t for t, _ in related.most_common(5)]),
+            "Read As": "A corpus-specific word that may point to a distinctive theme, issue, or domain signal.",
+        })
+
+    return pd.DataFrame(rows)
+
+
+def build_signal_quadrant_df(scanner: StreamScanner, counts: Counter, top_n: int = 150) -> pd.DataFrame:
+    tfidf_df = calculate_tfidf(scanner, top_n)
+    tfidf_scores = {
+        row["Term"]: row["Keyphrase Score"]
+        for _, row in tfidf_df.iterrows()
+    } if not tfidf_df.empty else {}
+
+    rows = []
+    for term, count in counts.most_common(top_n):
+        rows.append({
+            "Term": term,
+            "Frequency": count,
+            "Distinctiveness": float(tfidf_scores.get(term, 0.0)),
+        })
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return df
+
+    freq_cutoff = df["Frequency"].median()
+    distinct_cutoff = df["Distinctiveness"].median()
+
+    def classify(row):
+        high_freq = row["Frequency"] >= freq_cutoff
+        high_distinct = row["Distinctiveness"] >= distinct_cutoff
+        if high_freq and high_distinct:
+            return "Core signal"
+        if high_freq and not high_distinct:
+            return "Common backdrop"
+        if not high_freq and high_distinct:
+            return "Niche signal"
+        return "Low evidence"
+
+    df["Quadrant"] = df.apply(classify, axis=1)
+    return df.sort_values(["Quadrant", "Frequency"], ascending=[True, False])
+
+
+def parse_expected_terms(raw: str) -> List[str]:
+    if not raw:
+        return []
+    entries = raw.replace("\n", ",").split(",")
+    return [entry.strip().lower() for entry in entries if entry.strip()]
+
+
+def build_expected_terms_df(raw_terms: str, counts: Counter, bigrams: Counter) -> pd.DataFrame:
+    rows = []
+    for term in parse_expected_terms(raw_terms):
+        parts = term.split()
+        if len(parts) == 1:
+            observed = counts.get(term, 0)
+        elif len(parts) == 2:
+            observed = bigrams.get((parts[0], parts[1]), 0) + bigrams.get((parts[1], parts[0]), 0)
+        else:
+            observed = 0
+
+        if observed == 0:
+            status = "Missing"
+        elif observed < 3:
+            status = "Weak"
+        else:
+            status = "Present"
+
+        rows.append({
+            "Expected Signal": term,
+            "Observed Count": observed,
+            "Status": status,
+        })
+    return pd.DataFrame(rows)
+
+
+def compare_counter_terms(left_counts: Counter, right_counts: Counter, stopwords: Set[str], min_word_len: int, top_n: int = 50) -> pd.DataFrame:
+    left_total = max(sum(left_counts.values()), 1)
+    right_total = max(sum(right_counts.values()), 1)
+    vocab = set(left_counts) | set(right_counts)
+    rows = []
+    for term in vocab:
+        if len(str(term)) < min_word_len or term in stopwords:
+            continue
+        left_rate = left_counts.get(term, 0) / left_total
+        right_rate = right_counts.get(term, 0) / right_total
+        diff = left_rate - right_rate
+        if left_counts.get(term, 0) + right_counts.get(term, 0) < 3:
+            continue
+        rows.append({
+            "Term": term,
+            "Left Count": left_counts.get(term, 0),
+            "Right Count": right_counts.get(term, 0),
+            "Left Rate": round(left_rate, 6),
+            "Right Rate": round(right_rate, 6),
+            "Difference": round(diff, 6),
+            "Leans Toward": "Left" if diff > 0 else "Right",
+        })
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return df
+    df["Abs Difference"] = df["Difference"].abs()
+    return df.sort_values("Abs Difference", ascending=False).drop(columns=["Abs Difference"]).head(top_n)
+
+
+def build_temporal_drift_df(temporal_counts: Dict[str, Counter], stopwords: Set[str], min_word_len: int, top_n: int = 50) -> pd.DataFrame:
+    dates = sorted(temporal_counts.keys())
+    if len(dates) < 2:
+        return pd.DataFrame()
+    midpoint = max(1, len(dates) // 2)
+    early = Counter()
+    late = Counter()
+    for d in dates[:midpoint]:
+        early.update(temporal_counts[d])
+    for d in dates[midpoint:]:
+        late.update(temporal_counts[d])
+    df = compare_counter_terms(late, early, stopwords, min_word_len, top_n)
+    if df.empty:
+        return df
+    return df.rename(columns={
+        "Left Count": "Late Count",
+        "Right Count": "Early Count",
+        "Left Rate": "Late Rate",
+        "Right Rate": "Early Rate",
+    }).replace({"Leans Toward": {"Left": "Rising later", "Right": "Fading later"}})
+
+
 def render_workflow_guide():
     with st.expander("📘 Comprehensive App Guide: How to use this Tool", expanded=False):
         st.markdown("""
@@ -2495,18 +2673,20 @@ def render_workflow_guide():
 
         If you are new to the app, read the outputs in this order:
         1. **Word Cloud + Stats** for the big picture
-        2. **Keyphrases / NPMI** for specific language and terminology
-        3. **Entities** for people, orgs, systems, or named things
-        4. **Graph** for relationships and clusters
-        5. **Trends** if dates were supplied
-        6. **Topic Modeling** when you want automatic thematic buckets
-        7. **Maturity** when you want an interpretive framework rather than raw term counts
+        2. **Themes** for theme evidence cards, signal quadrants, missing expected signals, contrasts, and temporal drift
+        3. **Keyphrases / NPMI** for specific language and terminology
+        4. **Entities** for people, orgs, systems, or named things
+        5. **Graph** for relationships and clusters
+        6. **Trends** if dates were supplied
+        7. **Topic Modeling** when you want automatic thematic buckets
+        8. **Maturity** when you want an interpretive framework rather than raw term counts
 
         ---
 
         ### 🧠 How to Read the Output
 
         *   **Word Cloud + Stats** → Fast orientation. Use this to confirm you scanned the right thing.
+        *   **Themes** → The interpretive lens: theme evidence cards, frequency-vs-distinctiveness, missing expected signals, category contrasts, and temporal drift.
         *   **Keyphrases (TF-IDF)** → What is unusually specific to this corpus, not just frequent.
         *   **Sticky Concepts (NPMI)** → Which word pairs behave like real concepts rather than accidental neighbors.
         *   **Entities** → Which named people, organizations, programs, or systems dominate the discussion.
@@ -2516,6 +2696,30 @@ def render_workflow_guide():
         *   **Maturity Model** → An interpretive scoring layer that reads the language as capability signal.
 
         ---
+
+        ### 🧭 Reading Between the Lines: Themes Tab
+
+        The **Themes** tab is designed to help you move from raw word counts toward interpretation.
+
+        *   **Theme Evidence Cards:** Start here when you want a short list of candidate themes. Treat each row as a lead, then inspect the related terms to see whether the lead is meaningful or just repeated wording.
+        *   **Signal Quadrant:** Separates high-frequency terms from high-distinctiveness terms. The most revealing clues are often not the most common words.
+        *   **What's Missing?:** Enter expected concepts, risks, capabilities, or topics and check whether they are present, weak, or absent in the corpus.
+        *   **Contrastive Analysis:** Appears when a category column was selected during scan. Use it to compare teams, sources, document types, cohorts, or speakers.
+        *   **Temporal Drift:** Appears when date metadata is available. Use it to see which language rises later or fades over time.
+
+        These views are evidence prompts rather than automated conclusions. They are best used to form hypotheses, identify follow-up questions, and decide where to read more closely.
+
+        ### 🧾 Input Design for Stronger Interpretive Analysis
+
+        Plain text still works, but richer metadata unlocks richer analysis:
+
+        *   **Text column:** the content to analyze.
+        *   **Date column:** enables Trends and Temporal Drift.
+        *   **Category column:** enables Contrastive Analysis.
+        *   **Transcript speaker labels:** enable speaker detection and speaker exclusion.
+        *   **Cleaned/anonymized text:** improves quality and reduces privacy risk on public Streamlit hosting.
+
+        For best results, upload CSV/XLSX files with clear text, date, and category fields when you want to compare groups or read change over time. For transcripts, use the pre-scan preview to inspect detected speaker labels before running the full scan.
 
         ### 🧪 Topic Modeling: LDA vs NMF
 
@@ -3638,7 +3842,7 @@ with tab_work:
         text_stats = calculate_text_stats(combined_counts, scanner.total_rows_processed)
         render_auto_insights(scanner, proc_conf)
         # main tabs
-        tab_main, tab_trend, tab_ent, tab_key, tab_mat = st.tabs(["☁️ Word Cloud & Stats", "📈 Trends", "👥 Entities", "🔑 Keyphrases", "🏆 Maturity"])
+        tab_main, tab_theme, tab_trend, tab_ent, tab_key, tab_mat = st.tabs(["☁️ Word Cloud & Stats", "🧭 Themes", "📈 Trends", "👥 Entities", "🔑 Keyphrases", "🏆 Maturity"])
         
         with tab_main:
             if enable_sentiment:
@@ -3681,6 +3885,157 @@ with tab_work:
                 f"{text_stats['Lexical Diversity']}",
                 help="The Ratio of Unique Words to Total Words (Unique / Total). \n\n• High (>0.5): Dense information, varied vocabulary (e.g., Poetry, Abstracts).\n• Low (<0.1): Highly repetitive, consistent language (e.g., Logs, Legal Boilerplate)."
             )
+
+        with tab_theme:
+            st.subheader("🧭 Interpretive Lens")
+            st.caption(
+                "Use these views to read between the lines: recurring phrases, distinctive terms, missing expected signals, "
+                "category differences, and time-based shifts. These are evidence prompts, not automated conclusions."
+            )
+
+            st.markdown("#### Theme Evidence Cards")
+            theme_df = build_theme_evidence_cards(scanner, combined_counts, top_n=8)
+            if not theme_df.empty:
+                st.dataframe(
+                    theme_df,
+                    use_container_width=True,
+                    column_config={
+                        "Theme Evidence": st.column_config.TextColumn("Theme Evidence", help="A phrase or term that may point to an underlying theme."),
+                        "Evidence Type": st.column_config.TextColumn("Evidence Type", help="Whether the signal comes from phrase association or corpus distinctiveness."),
+                        "Support": st.column_config.NumberColumn("Support", help="How often this signal appears."),
+                        "Distinctiveness": st.column_config.NumberColumn("Distinctiveness", help="How strongly this signal stands out mathematically."),
+                        "Related Terms": st.column_config.TextColumn("Related Terms", help="Nearby terms that often travel with this signal."),
+                        "Read As": st.column_config.TextColumn("Read As", help="Plain-language interpretation guidance."),
+                    }
+                )
+                st.download_button(
+                    "📥 Download theme evidence CSV",
+                    dataframe_to_csv_bytes(theme_df),
+                    "theme_evidence.csv",
+                    "text/csv",
+                )
+            else:
+                st.info("Not enough phrase or TF-IDF signal yet to build theme evidence cards.")
+
+            st.markdown("#### Signal Quadrant: Frequency vs. Distinctiveness")
+            quadrant_df = build_signal_quadrant_df(scanner, combined_counts, top_n=150)
+            if not quadrant_df.empty:
+                q_colors = {
+                    "Core signal": "#2ca02c",
+                    "Common backdrop": "#1f77b4",
+                    "Niche signal": "#ff7f0e",
+                    "Low evidence": "#7f7f7f",
+                }
+                fig_q, ax_q = plt.subplots(figsize=(8, 4.5))
+                for q_name, q_group in quadrant_df.groupby("Quadrant"):
+                    ax_q.scatter(
+                        q_group["Frequency"],
+                        q_group["Distinctiveness"],
+                        label=q_name,
+                        alpha=0.72,
+                        s=42,
+                        color=q_colors.get(q_name, "#7f7f7f"),
+                    )
+                for _, row in quadrant_df.head(12).iterrows():
+                    ax_q.annotate(row["Term"], (row["Frequency"], row["Distinctiveness"]), fontsize=8, alpha=0.8)
+                ax_q.set_xlabel("Frequency")
+                ax_q.set_ylabel("Distinctiveness")
+                ax_q.set_title("Frequent terms are not always the most revealing terms")
+                ax_q.legend(loc="best", fontsize=8)
+                ax_q.grid(alpha=0.2)
+                st.pyplot(fig_q, use_container_width=True)
+                plt.close(fig_q)
+
+                st.dataframe(quadrant_df.head(80), use_container_width=True)
+                st.download_button(
+                    "📥 Download signal quadrant CSV",
+                    dataframe_to_csv_bytes(quadrant_df),
+                    "signal_quadrant.csv",
+                    "text/csv",
+                )
+            else:
+                st.info("Not enough term data yet to build the signal quadrant.")
+
+            st.markdown("#### What's Missing? Expected Signal Check")
+            expected_raw = st.text_area(
+                "Optional: enter expected terms or phrases, separated by commas or new lines",
+                key="expected_signal_terms_heavy",
+                placeholder="Example: procurement delay, escalation, training, governance",
+                help="Use this when you expected a topic to appear and want to test whether it is present, weak, or absent."
+            )
+            expected_df = build_expected_terms_df(expected_raw, combined_counts, scanner.global_bigrams)
+            if not expected_df.empty:
+                st.dataframe(expected_df, use_container_width=True)
+                st.download_button(
+                    "📥 Download expected signal CSV",
+                    dataframe_to_csv_bytes(expected_df),
+                    "expected_signal_check.csv",
+                    "text/csv",
+                )
+            else:
+                st.caption("Add expected terms to check whether important themes are present, weak, or absent in the scanned text.")
+
+            st.markdown("#### Contrastive Analysis")
+            if scanner.category_counts and len(scanner.category_counts) >= 2:
+                categories = sorted(scanner.category_counts.keys())
+                col_left, col_right = st.columns(2)
+                left_category = col_left.selectbox("Compare category A", categories, index=0, key="contrast_left_category_heavy")
+                right_default = 1 if len(categories) > 1 else 0
+                right_category = col_right.selectbox("Compare category B", categories, index=right_default, key="contrast_right_category_heavy")
+
+                if left_category != right_category:
+                    contrast_df = compare_counter_terms(
+                        scanner.category_counts[left_category],
+                        scanner.category_counts[right_category],
+                        proc_conf.stopwords,
+                        proc_conf.min_word_len,
+                        top_n=50,
+                    )
+                    if not contrast_df.empty:
+                        contrast_df = contrast_df.rename(columns={
+                            "Left Count": f"{left_category} Count",
+                            "Right Count": f"{right_category} Count",
+                            "Left Rate": f"{left_category} Rate",
+                            "Right Rate": f"{right_category} Rate",
+                        })
+                        contrast_df["Leans Toward"] = contrast_df["Leans Toward"].replace({
+                            "Left": left_category,
+                            "Right": right_category,
+                        })
+                        st.dataframe(contrast_df, use_container_width=True)
+                        st.download_button(
+                            "📥 Download contrastive analysis CSV",
+                            dataframe_to_csv_bytes(contrast_df),
+                            "contrastive_analysis.csv",
+                            "text/csv",
+                        )
+                    else:
+                        st.info("No strong category differences were detected with the current settings.")
+                else:
+                    st.caption("Choose two different categories to compare.")
+            else:
+                st.info("Contrastive analysis appears when scanned data includes a category column.")
+
+            st.markdown("#### Temporal Drift")
+            if scanner.temporal_counts and len(scanner.temporal_counts) >= 2:
+                drift_df = build_temporal_drift_df(
+                    scanner.temporal_counts,
+                    proc_conf.stopwords,
+                    proc_conf.min_word_len,
+                    top_n=50,
+                )
+                if not drift_df.empty:
+                    st.dataframe(drift_df, use_container_width=True)
+                    st.download_button(
+                        "📥 Download temporal drift CSV",
+                        dataframe_to_csv_bytes(drift_df),
+                        "temporal_drift.csv",
+                        "text/csv",
+                    )
+                else:
+                    st.info("No strong early-vs-late shifts were detected with the current settings.")
+            else:
+                st.info("Temporal drift appears when scanned data includes at least two valid dates.")
 
         with tab_trend:
             if scanner.temporal_counts:
