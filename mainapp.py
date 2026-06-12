@@ -2550,6 +2550,7 @@ def render_workflow_guide():
         **Bottom line:** start simple, confirm the scan makes sense, then layer on the more interpretive tools.
         """)
 
+
 def render_lit_case_study():
     # We use Unicode "Math Sans" characters to simulate bold/italics in the title
     # Italic 'another': 𝘢𝘯𝘰𝘵𝘩𝘦𝘳
@@ -2559,38 +2560,43 @@ def render_lit_case_study():
     with st.expander(title, expanded=False):
         st.markdown("""
         ### The Scenario
-        **The Artifact:** The full text of Ovid's **<a href="https://www.gutenberg.org/files/21765/21765-h/21765-h.htm" target="_blank">"Metamorphoses"</a>** (via Project Gutenberg URL).
-        **The User:** A Digital Humanities Researcher or Student.
-        **The Goal:** To rapidly map the "Pantheon" of characters and distinguish the original narrative from the translator's artifacts.
+        **The Artifact:** The full text of Ovid's **<a href="https://www.gutenberg.org/files/21765/21765-h/21765-h.htm" target="_blank">"Metamorphoses"</a>** (via Project Gutenberg URL).  
+        **The User:** A Digital Humanities Researcher or Student.  
+        **The Goal:** To separate literary signal from translation, formatting, and publication artifacts before doing deeper interpretation.
 
         ---
 
-        ### 1. The "Pantheon Map" (Entities Tab)
-        *   **The Question:** "Who are the dominant power players in this 15-book epic?"
+        ### 1. The "Textual Layers" View (Entities Tab)
+        *   **The Question:** "What named layers, editors, translators, sources, or recurring proper terms are shaping this corpus?"
         *   **The Signal:** Capitalized Name Extraction.
-        *   **The Result:** The engine immediately surfaces **"Jupiter," "Apollo," "Ceres,"** and **"Minerva"** as the top nodes.
-        *   **The Value / Insight:** Without reading a single line, you have a hierarchical map of the Roman deities driving the plot.
+        *   **The Result:** The engine surfaces recurring proper nouns and publication-layer terms that may belong to the text, the translation, or the Project Gutenberg wrapper.
+        *   **The Value / Insight:** Before interpreting the literary content, the researcher can identify which signals come from the source text and which may come from metadata, headings, translator notes, or edition artifacts.
 
         ### 2. The "Translator's Fingerprint" (NPMI & Bigrams)
-        *   **The Question:** "Is this pure text, or is there structural noise?"
+        *   **The Question:** "Is this pure source text, or are translation/editorial artifacts mixed into the analysis?"
         *   **The Signal:** Sticky Concepts (Bigrams).
-        *   **The Result:** The engine identifies **"Clarke translates"** and **"-ver Clarke"** as top phrases.
-        *   **The Value / Insight:** **Forensic Separation.** The engine detected that *John Clarke* (the translator) is statistically inseparable from the text. It highlights "Data Hygiene" issues—showing you exactly what "boilerplate" needs to be cleaned (e.g., "Project Gutenberg" headers) before deep analysis.
+        *   **The Result:** The engine may surface phrases such as **"Clarke translates"** or other recurring translator/editor terms.
+        *   **The Value / Insight:** This highlights data hygiene issues. If translator names, footnotes, boilerplate, or Project Gutenberg headers dominate the output, the corpus should be cleaned before deeper analysis.
 
-        ### 3. The "Narrative Arcs" (Topic Modeling)
-        *   **The Question:** "What are the distinct recurring themes?"
-        *   **The Signal:** NMF/LDA Mathematical Bucketing.
-        *   **The Result:**
-            *   **Topic A:** [Daughter, Jupiter, Cadmus, Wife] -> *The Genealogy & Origin Myths.*
-            *   **Topic B:** [Thou, Thee, Thus, Said] -> *The Dialogue & Poetic Structure.*
-        *   **The Value / Insight:** The engine successfully separates the *Style* (Archaic English) from the *Substance* (Mythological Events).
+        ### 3. The "Transformation Language" View (TF-IDF & Topics)
+        *   **The Question:** "Which words and themes make this document distinctive?"
+        *   **The Signal:** TF-IDF and topic modeling.
+        *   **The Result:** The app can surface recurring language around change, bodies, speech, violence, kinship, place, exile, or authority, causality, or agency without requiring the user to predefine categories.
+        *   **The Value / Insight:** Instead of starting with a character list, the researcher can begin with repeated conceptual patterns and then decide which passages deserve close reading.
 
-        ### 4. The "Semantic Network" (Graph Tab)
-        *   **The Question:** "How do the main characters interact?"
-        *   **The Signal:** Proximity-based linking.
-        *   **The Result:** "jupiter" is the central "hub" node, with spokes connecting to various "nymphs" and "daughters."
-        *   **The Value / Insight:** Visualizes the centralized power structure of the mythology, confirming Jupiter as the primary driver of the transformations.
+        ### 4. The "Structure vs. Substance" Check (Topic Modeling)
+        *   **The Question:** "Are the discovered topics literary themes, stylistic patterns, or edition artifacts?"
+        *   **The Signal:** NMF/LDA mathematical bucketing.
+        *   **The Result:** One topic may capture archaic dialogue or translation style, while another may capture narrative action or recurring thematic language.
+        *   **The Value / Insight:** The app helps separate *how the text is written or translated* from *what the narrative repeatedly does*.
+
+        ### 5. The "Semantic Texture" Map (Graph Tab)
+        *   **The Question:** "Which concepts repeatedly appear near each other?"
+        *   **The Signal:** Proximity-based term linking.
+        *   **The Result:** The graph may connect terms related to transformation, family relations, place, speech, punishment, or desire.
+        *   **The Value / Insight:** This gives the researcher a map of recurring conceptual neighborhoods, useful for forming hypotheses before close reading.
         """, unsafe_allow_html=True)
+
 
 def render_auto_insights(scanner, proc_conf):
     # Only run if we have data
