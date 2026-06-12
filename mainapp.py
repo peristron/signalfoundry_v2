@@ -1686,8 +1686,8 @@ def parse_speaker_exclusions(raw: str) -> Set[str]:
 def extract_speaker_label(text: str) -> Tuple[Optional[str], str]:
     """
     Extracts transcript-style speaker labels such as:
-    - Speaker 18 (Rikki): text
-    - Bob Smith: text
+    - Speaker 18 (Blaze): text
+    - Omar Akhtar: text
 
     Returns (speaker, utterance). If no safe label is found, speaker is None.
     """
@@ -1732,7 +1732,7 @@ def collect_speaker_labels_from_text(
     Counts explicit transcript speaker labels without attempting identity detection.
 
     This only looks for labels already present before a colon, such as
-    "Speaker 18 (Rikki):" or "Participant A:".
+    "Speaker 18 (Blaze):" or "Participant A:".
     """
     counts = Counter()
     if not isinstance(text, str):
@@ -2339,9 +2339,6 @@ def perform_refinery_job(file_obj, chunk_size, clean_conf: CleaningConfig):
 # 📊 UI, analytics renderers
 # ==========================================
 
-def dataframe_to_csv_bytes(df: pd.DataFrame) -> bytes:
-    return df.to_csv(index=False).encode("utf-8")
-
 def calculate_text_stats(counts: Counter, total_rows: int) -> Dict:
     total_tokens = sum(counts.values())
     unique_tokens = len(counts)
@@ -2615,7 +2612,6 @@ def build_temporal_drift_df(temporal_counts: Dict[str, Counter], stopwords: Set[
         "Right Rate": "Early Rate",
     }).replace({"Leans Toward": {"Left": "Rising later", "Right": "Fading later"}})
 
-
 def render_workflow_guide():
     with st.expander("📘 Comprehensive App Guide: How to use this Tool", expanded=False):
         st.markdown("""
@@ -2673,7 +2669,7 @@ def render_workflow_guide():
 
         If you are new to the app, read the outputs in this order:
         1. **Word Cloud + Stats** for the big picture
-        2. **Themes** for theme evidence cards, signal quadrants, missing expected signals, contrasts, and temporal drift
+        2. **Themes** when you want help reading between the lines
         3. **Keyphrases / NPMI** for specific language and terminology
         4. **Entities** for people, orgs, systems, or named things
         5. **Graph** for relationships and clusters
@@ -2697,29 +2693,17 @@ def render_workflow_guide():
 
         ---
 
-        ### 🧭 Reading Between the Lines: Themes Tab
-
-        The **Themes** tab is designed to help you move from raw word counts toward interpretation.
+        ### 🧭 How to Read Between the Lines
 
         *   **Theme Evidence Cards:** Start here when you want a short list of candidate themes. Treat each row as a lead, then inspect the related terms to see whether the lead is meaningful or just repeated wording.
-        *   **Signal Quadrant:** Separates high-frequency terms from high-distinctiveness terms. The most revealing clues are often not the most common words.
-        *   **What's Missing?:** Enter expected concepts, risks, capabilities, or topics and check whether they are present, weak, or absent in the corpus.
-        *   **Contrastive Analysis:** Appears when a category column was selected during scan. Use it to compare teams, sources, document types, cohorts, or speakers.
-        *   **Temporal Drift:** Appears when date metadata is available. Use it to see which language rises later or fades over time.
+        *   **Signal Quadrant:** Compare what is frequent against what is distinctive. The most repeated word is not always the most revealing word.
+        *   **What's Missing?:** Enter terms you expected to see, such as "governance", "risk", "training", or a known project name. Missing or weak signals can be just as important as present ones.
+        *   **Contrastive Analysis:** If your upload has a category column, compare two groups, speakers, teams, document types, or phases to see what language differentiates them.
+        *   **Temporal Drift:** If your upload has dates, look for terms that rise or fade between the early and later portions of the corpus.
 
-        These views are evidence prompts rather than automated conclusions. They are best used to form hypotheses, identify follow-up questions, and decide where to read more closely.
+        **Input note:** The app still accepts the same uploads as before. For richer "read between the lines" analysis, use structured CSV/XLSX fields when you have them: text columns for content, a date column for drift, a category column for comparison, and transcript speaker labels when you want to include or exclude specific voices.
 
-        ### 🧾 Input Design for Stronger Interpretive Analysis
-
-        Plain text still works, but richer metadata unlocks richer analysis:
-
-        *   **Text column:** the content to analyze.
-        *   **Date column:** enables Trends and Temporal Drift.
-        *   **Category column:** enables Contrastive Analysis.
-        *   **Transcript speaker labels:** enable speaker detection and speaker exclusion.
-        *   **Cleaned/anonymized text:** improves quality and reduces privacy risk on public Streamlit hosting.
-
-        For best results, upload CSV/XLSX files with clear text, date, and category fields when you want to compare groups or read change over time. For transcripts, use the pre-scan preview to inspect detected speaker labels before running the full scan.
+        ---
 
         ### 🧪 Topic Modeling: LDA vs NMF
 
@@ -2749,11 +2733,12 @@ def render_workflow_guide():
         *   **Seeing garbage words?** → Add them to **Stopwords** box.  
         *   **Seeing "run" and "running"?** → Turn on **Lemmatization**.  
         *   **Dates not showing up in Trends?** → Make sure you selected the date column before scanning.
+        *   **Comparing groups?** → Use a Category column during scan. This powers the Contrastive Analysis view in the Themes tab.
+        *   **Tracking change?** → Use a Date column during scan. This powers Temporal Drift and the existing Trends tab.
         *   **Need a shareable verification artifact?** → Download the **Hybrid Signature** (QR + Heatmap).
 
         **Bottom line:** start simple, confirm the scan makes sense, then layer on the more interpretive tools.
         """)
-
 
 def render_lit_case_study():
     # We use Unicode "Math Sans" characters to simulate bold/italics in the title
@@ -2764,43 +2749,38 @@ def render_lit_case_study():
     with st.expander(title, expanded=False):
         st.markdown("""
         ### The Scenario
-        **The Artifact:** The full text of Ovid's **<a href="https://www.gutenberg.org/files/21765/21765-h/21765-h.htm" target="_blank">"Metamorphoses"</a>** (via Project Gutenberg URL).  
-        **The User:** A Digital Humanities Researcher or Student.  
-        **The Goal:** To separate literary signal from translation, formatting, and publication artifacts before doing deeper interpretation.
+        **The Artifact:** The full text of Ovid's **<a href="https://www.gutenberg.org/files/21765/21765-h/21765-h.htm" target="_blank">"Metamorphoses"</a>** (via Project Gutenberg URL).
+        **The User:** A Digital Humanities Researcher or Student.
+        **The Goal:** To rapidly map the "Pantheon" of characters and distinguish the original narrative from the translator's artifacts.
 
         ---
 
-        ### 1. The "Textual Layers" View (Entities Tab)
-        *   **The Question:** "What named layers, editors, translators, sources, or recurring proper terms are shaping this corpus?"
+        ### 1. The "Pantheon Map" (Entities Tab)
+        *   **The Question:** "Who are the dominant power players in this 15-book epic?"
         *   **The Signal:** Capitalized Name Extraction.
-        *   **The Result:** The engine surfaces recurring proper nouns and publication-layer terms that may belong to the text, the translation, or the Project Gutenberg wrapper.
-        *   **The Value / Insight:** Before interpreting the literary content, the researcher can identify which signals come from the source text and which may come from metadata, headings, translator notes, or edition artifacts.
+        *   **The Result:** The engine immediately surfaces **"Jupiter," "Apollo," "Ceres,"** and **"Minerva"** as the top nodes.
+        *   **The Value / Insight:** Without reading a single line, you have a hierarchical map of the Roman deities driving the plot.
 
         ### 2. The "Translator's Fingerprint" (NPMI & Bigrams)
-        *   **The Question:** "Is this pure source text, or are translation/editorial artifacts mixed into the analysis?"
+        *   **The Question:** "Is this pure text, or is there structural noise?"
         *   **The Signal:** Sticky Concepts (Bigrams).
-        *   **The Result:** The engine may surface phrases such as **"Clarke translates"** or other recurring translator/editor terms.
-        *   **The Value / Insight:** This highlights data hygiene issues. If translator names, footnotes, boilerplate, or Project Gutenberg headers dominate the output, the corpus should be cleaned before deeper analysis.
+        *   **The Result:** The engine identifies **"Clarke translates"** and **"-ver Clarke"** as top phrases.
+        *   **The Value / Insight:** **Forensic Separation.** The engine detected that *John Clarke* (the translator) is statistically inseparable from the text. It highlights "Data Hygiene" issues—showing you exactly what "boilerplate" needs to be cleaned (e.g., "Project Gutenberg" headers) before deep analysis.
 
-        ### 3. The "Transformation Language" View (TF-IDF & Topics)
-        *   **The Question:** "Which words and themes make this document distinctive?"
-        *   **The Signal:** TF-IDF and topic modeling.
-        *   **The Result:** The app can surface recurring language around change, bodies, speech, violence, kinship, place, exile, or authority, causality, or agency without requiring the user to predefine categories.
-        *   **The Value / Insight:** Instead of starting with a character list, the researcher can begin with repeated conceptual patterns and then decide which passages deserve close reading.
+        ### 3. The "Narrative Arcs" (Topic Modeling)
+        *   **The Question:** "What are the distinct recurring themes?"
+        *   **The Signal:** NMF/LDA Mathematical Bucketing.
+        *   **The Result:**
+            *   **Topic A:** [Daughter, Jupiter, Cadmus, Wife] -> *The Genealogy & Origin Myths.*
+            *   **Topic B:** [Thou, Thee, Thus, Said] -> *The Dialogue & Poetic Structure.*
+        *   **The Value / Insight:** The engine successfully separates the *Style* (Archaic English) from the *Substance* (Mythological Events).
 
-        ### 4. The "Structure vs. Substance" Check (Topic Modeling)
-        *   **The Question:** "Are the discovered topics literary themes, stylistic patterns, or edition artifacts?"
-        *   **The Signal:** NMF/LDA mathematical bucketing.
-        *   **The Result:** One topic may capture archaic dialogue or translation style, while another may capture narrative action or recurring thematic language.
-        *   **The Value / Insight:** The app helps separate *how the text is written or translated* from *what the narrative repeatedly does*.
-
-        ### 5. The "Semantic Texture" Map (Graph Tab)
-        *   **The Question:** "Which concepts repeatedly appear near each other?"
-        *   **The Signal:** Proximity-based term linking.
-        *   **The Result:** The graph may connect terms related to transformation, family relations, place, speech, punishment, or desire.
-        *   **The Value / Insight:** This gives the researcher a map of recurring conceptual neighborhoods, useful for forming hypotheses before close reading.
+        ### 4. The "Semantic Network" (Graph Tab)
+        *   **The Question:** "How do the main characters interact?"
+        *   **The Signal:** Proximity-based linking.
+        *   **The Result:** "jupiter" is the central "hub" node, with spokes connecting to various "nymphs" and "daughters."
+        *   **The Value / Insight:** Visualizes the centralized power structure of the mythology, confirming Jupiter as the primary driver of the transformations.
         """, unsafe_allow_html=True)
-
 
 def render_auto_insights(scanner, proc_conf):
     # Only run if we have data
@@ -3158,6 +3138,9 @@ def fig_to_png_bytes(fig):
     buf.seek(0)
     return buf
 
+def dataframe_to_csv_bytes(df: pd.DataFrame) -> bytes:
+    return df.to_csv(index=False).encode("utf-8-sig")
+
 # 🤖 AI logic
 def call_llm_and_track_cost(system_prompt: str, user_prompt: str, config: dict):
     try:
@@ -3458,15 +3441,15 @@ with st.sidebar:
         help=(
             "Optional. For transcripts with speaker labels, enter speakers whose "
             "entire utterances should be excluded before analysis. Exact matching "
-            "is used by default, for example: Bob Smith, Speaker 18 (Rikki)."
+            "is used by default, for example: Omar Akhtar, Speaker 18 (Blaze)."
         ),
     )
     partial_speaker_match = st.checkbox(
         "Use partial speaker matching",
         False,
         help=(
-            "When enabled, an entry like 'Bob' also matches labels such as "
-            "'Bob Smith' or 'Speaker 4 (Bob)'. Leave off for safer exact matching."
+            "When enabled, an entry like 'Omar' also matches labels such as "
+            "'Omar Akhtar' or 'Speaker 4 (Omar)'. Leave off for safer exact matching."
         ),
     )
     excluded_speakers = parse_speaker_exclusions(excluded_speaker_input)
@@ -3959,7 +3942,7 @@ with tab_work:
             st.markdown("#### What's Missing? Expected Signal Check")
             expected_raw = st.text_area(
                 "Optional: enter expected terms or phrases, separated by commas or new lines",
-                key="expected_signal_terms_heavy",
+                key="expected_signal_terms",
                 placeholder="Example: procurement delay, escalation, training, governance",
                 help="Use this when you expected a topic to appear and want to test whether it is present, weak, or absent."
             )
@@ -3979,9 +3962,9 @@ with tab_work:
             if scanner.category_counts and len(scanner.category_counts) >= 2:
                 categories = sorted(scanner.category_counts.keys())
                 col_left, col_right = st.columns(2)
-                left_category = col_left.selectbox("Compare category A", categories, index=0, key="contrast_left_category_heavy")
+                left_category = col_left.selectbox("Compare category A", categories, index=0, key="contrast_left_category")
                 right_default = 1 if len(categories) > 1 else 0
-                right_category = col_right.selectbox("Compare category B", categories, index=right_default, key="contrast_right_category_heavy")
+                right_category = col_right.selectbox("Compare category B", categories, index=right_default, key="contrast_right_category")
 
                 if left_category != right_category:
                     contrast_df = compare_counter_terms(
