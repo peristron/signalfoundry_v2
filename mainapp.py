@@ -1466,7 +1466,7 @@ TAM_DOMAIN_HELP = {
         "leading": "Leading-edge assessment uses high-quality feedback loops, adaptive or authentic assessment design, analytics-driven evaluation, and scalable assessment practices."
     },
     "06_instructor_efficiency": {
-        "plain": "How effectively instructors can use Brightspace tools without unnecessary friction or manual effort.",
+        "plain": "How effectively instructors can use LMS tools without unnecessary friction or manual effort.",
         "covers": "Instructor onboarding, training, support dependency, templates, reusable workflows, troubleshooting, faculty champions, instructional design partnership, automation, and time-saving practices.",
         "leading": "Leading-edge instructor efficiency is supported by scalable enablement, coaching, reusable models, automation, faculty learning communities, and innovation partnerships."
     },
@@ -1496,7 +1496,7 @@ TAM_DOMAIN_HELP = {
         "leading": "Leading-edge innovation is tied to institutional goals, evaluated for impact and equity, and scaled through pilots, research, communities, and change agents."
     },
     "12_collaboration": {
-        "plain": "How technology, academic, support, and leadership teams communicate and work together around Brightspace.",
+        "plain": "How technology, academic, support, and leadership teams communicate and work together around the LMS.",
         "covers": "Support requests, service coordination, two-way communication, pedagogical partnership, faculty development, cross-functional meetings, governance committees, shared vision, and strategic initiatives.",
         "leading": "Leading-edge collaboration is strategic, proactive, cross-functional, governance-supported, and aligned to institutional priorities and digital transformation goals."
     },
@@ -1504,7 +1504,7 @@ TAM_DOMAIN_HELP = {
 
 
 def get_tam_domain_help(domain_key: str) -> Dict[str, str]:
-    """Returns plain-language help text for a TAM / Brightspace maturity domain."""
+    """Returns plain-language help text for a TAM / LMS maturity domain."""
     return TAM_DOMAIN_HELP.get(domain_key, {
         "plain": "No description is available for this domain yet.",
         "covers": "No coverage details are available yet.",
