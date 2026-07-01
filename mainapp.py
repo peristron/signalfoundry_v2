@@ -1441,7 +1441,7 @@ class MaturityAssessor:
 
 TAM_DOMAIN_HELP = {
     "01_platform_admin": {
-        "plain": "How the Brightspace environment is configured, secured, integrated, monitored, and maintained.",
+        "plain": "How the LMS environment is configured, secured, integrated, monitored, and maintained.",
         "covers": "Roles and permissions, SSO, SIS/LTI/API integrations, course provisioning, configuration standards, monitoring, automation, lifecycle practices, and governance of the technical environment.",
         "leading": "A leading-edge environment uses automated provisioning, clear governance, integrated systems, proactive monitoring, scalable admin patterns, and documented lifecycle practices."
     },
